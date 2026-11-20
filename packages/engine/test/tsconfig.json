@@ -1,0 +1,9 @@
+{
+  // Tests may use Node APIs (reading fixtures); engine source may not.
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"]
+  },
+  "include": [".", "../src"]
+}
