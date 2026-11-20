@@ -881,6 +881,7 @@ All hosting is **card-free free tiers**. Each one will be confirmed as card-free
 # API
 NODE_ENV=development
 PORT=4000
+APP_NAME=Cleanify
 WEB_ORIGIN=http://localhost:5173
 MONGODB_URI=
 JWT_ACCESS_SECRET=
@@ -916,7 +917,9 @@ EMAIL_API_KEY=
 EMAIL_FROM=
 
 # Web (Vite)
-VITE_API_URL=http://localhost:4000   # with the Pages proxy (correction 6) this becomes /api
+# The browser always calls same-origin /api/* (correction 6).
+# Dev only: where the Vite dev server forwards /api/*.
+API_PROXY_TARGET=http://localhost:4000
 VITE_APP_NAME=Cleanify
 
 # Pages Function proxy (only if correction 6 = proxy; set in the Pages dashboard, not .env)
@@ -974,6 +977,9 @@ The cleanup Worker (correction 5) gets its R2 bucket through a Wrangler binding 
 | 2026-11-20 | **D4** Translation in browser mode sends only the pieces needing translation, after masking, never the whole file; the privacy page and notice say exactly this (sections 6, 8, 17) |
 | 2026-11-20 | **D5** Contrast: all four highlight tokens and `--accent` checked in both themes in Phase 2; backgrounds and coloured text must pass AA (section 9) |
 | 2026-11-20 | **D6** Agenda's maintenance checked before Phase 3; any switch to an alternative needs owner approval (section 24) |
+| 2026-11-20 | **P0-1** The web app always calls same-origin `/api/*`: Vite dev proxy locally, Pages Function in production. `VITE_API_URL` replaced by dev-only `API_PROXY_TARGET` (section 21) |
+| 2026-11-20 | **P0-2** TypeScript pinned to 6.0.x: typescript-eslint 8.73 supports TypeScript <6.1, and npm "latest" is 7.0. Revisit when typescript-eslint supports 7 |
+| 2026-11-20 | **P0-3** Tooling versions: Express 5, Vite 8, Tailwind CSS 4 (CSS-first `@theme` mapped to the section 9 variables), Vitest 5, pnpm 12 via Corepack. Added an `--on-accent` token (white / `#0C0C0D`) for text on accent buttons |
 
 ---
 
