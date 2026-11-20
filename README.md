@@ -8,7 +8,7 @@ plain ASCII, and translates to English. The full plan, decisions and roadmap are
 
 ## Prerequisites
 
-- **Node.js 20.19+** (CI uses 22; developed on 24)
+- **Node.js 24 LTS** (pinned in `.nvmrc`; CI and hosting use the same version)
 - **pnpm 12**, via Corepack, which ships with Node:
 
   ```sh
