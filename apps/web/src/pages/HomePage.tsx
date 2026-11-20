@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_APP_NAME } from '@cleanify/shared';
 import { fetchHealth } from '../api/health';
 import { ThemeToggle } from '../components/ThemeToggle';
-
-const APP_NAME = import.meta.env['VITE_APP_NAME'] || DEFAULT_APP_NAME;
+import { APP_NAME } from '../config';
 
 type ApiState = { kind: 'checking' } | { kind: 'ok'; version: string } | { kind: 'down' };
 
