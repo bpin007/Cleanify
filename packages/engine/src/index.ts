@@ -5,10 +5,7 @@ import type {
   AnalysisResult,
   Change,
   CsvDoc,
-  DecodedDoc,
   Doc,
-  EncodingName,
-  EncodingResult,
   PipelineOptions,
   SerializeOptions,
   TextDoc,
@@ -25,13 +22,10 @@ class NotImplementedError extends Error {
   }
 }
 
-export function detectEncoding(_bytes: Uint8Array): EncodingResult {
-  throw new NotImplementedError('detectEncoding');
-}
-
-export function decode(_bytes: Uint8Array, _encoding?: EncodingName): DecodedDoc {
-  throw new NotImplementedError('decode');
-}
+export { detectEncoding } from './decode/detect';
+export { decode } from './decode/decode';
+export { encodeText, UnencodableError } from './charsets/encode';
+export type { ExternalEncoder, UnencodableChar } from './charsets/encode';
 
 export function parseText(_text: string): TextDoc {
   throw new NotImplementedError('parseText');
