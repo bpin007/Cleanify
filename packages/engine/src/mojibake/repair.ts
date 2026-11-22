@@ -9,19 +9,8 @@
  */
 import { cp1252Byte } from '../charsets/cp1252';
 import { decodeUtf8At } from '../charsets/utf8';
-import type { Confidence } from '../types';
+import type { Proposal } from '../proposal';
 import { plausibility, scriptOf, type Plausibility } from './plausible';
-
-export interface Proposal {
-  /** UTF-16 offsets in the unit text. */
-  start: number;
-  end: number;
-  from: string;
-  to: string;
-  kind: string;
-  reason: string;
-  confidence: Confidence;
-}
 
 const MAX_PASSES = 3;
 
@@ -208,6 +197,7 @@ function proposalsFor(
       end: g.end,
       from: text.slice(g.start, g.end),
       to,
+      stage: 'encoding',
       kind: 'mojibake',
       reason: `Looks like UTF-8 text that was read as Windows-1252${times}`,
       confidence: viaText ? 'medium' : 'high',
