@@ -1,0 +1,15 @@
+{
+  "name": "@cleanify/engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cleanify conversion engine. Pure TypeScript: no DOM and no Node APIs, so it runs in the browser Web Worker and the server job runner alike.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  }
+}

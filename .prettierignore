@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+.turbo
+pnpm-lock.yaml
+# Exact-byte fixtures must never be reformatted
+packages/engine/test/fixtures
+# The plan is hand-formatted (wide tables, box diagrams)
+PROJECT.md
