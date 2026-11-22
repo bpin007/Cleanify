@@ -16,6 +16,11 @@ export interface Proposal {
   confidence: Confidence;
   /** Default: accepted when confidence is high. */
   accepted?: boolean;
+  /**
+   * Stage 1 only: the garbled text is also plausible as real text (e.g. `Ä…`).
+   * Accepted only when the same file has other high-confidence repairs (D11).
+   */
+  ambiguous?: boolean;
 }
 
 export type FoundWarning = {

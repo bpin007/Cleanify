@@ -120,7 +120,8 @@ export function validateChanges(
 
   for (const list of perUnit.values()) {
     const plain = list.filter((c) => c.stage !== 'translate');
-    plain.sort((a, b) => start(a) - start(b));
+    // Same start: an insertion (empty range) sorts before a replacement there.
+    plain.sort((a, b) => start(a) - start(b) || end(a) - end(b));
     for (let k = 1; k < plain.length; k++) {
       if (start(plain[k]!) < end(plain[k - 1]!)) {
         throw new ChangeModelError(`${plain[k - 1]!.id} and ${plain[k]!.id} overlap`);

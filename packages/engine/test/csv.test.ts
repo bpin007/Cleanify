@@ -35,9 +35,9 @@ describe('formula-injection guard (section 17, decision D8)', () => {
     const doc = parseCsv(source);
     const guards = analyze(doc).changes.filter((c) => c.kind === 'formula-guard');
     expect(guards.map((g) => [g.stage, g.from, g.to, g.accepted])).toEqual([
-      ['safety', '=', "'=", true],
-      ['safety', '@', "'@", true],
-      ['safety', '-', "'-", true],
+      ['safety', '', "'", true],
+      ['safety', '', "'", true],
+      ['safety', '', "'", true],
     ]);
     expect(guards.map((g) => g.location)).toEqual([
       { type: 'csv', row: 2, column: 3, header: 'note', charPos: 1 },

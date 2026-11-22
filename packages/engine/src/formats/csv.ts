@@ -9,8 +9,8 @@
  */
 import Papa from 'papaparse';
 import { applyToUnit } from '../changes/apply';
+import { indexById, isApplied } from '../changes/model';
 import type { PipelineUnit } from '../pipeline/analyze';
-import type { Proposal } from '../proposal';
 import type { Change, CsvCell, CsvDoc, EngineWarning, Location } from '../types';
 import { codePointsBetween } from './text';
 
@@ -167,25 +167,64 @@ export function csvUnits(doc: CsvDoc): PipelineUnit[] {
 /** A real number, which the formula guard must never touch (C10): -42, +1.5, -1,234.56, 1e5, 12% */
 const NUMBER = /^[+-]?(\d+([.,]\d+)*|\d*[.,]\d+)([eE][+-]?\d+)?%?$/;
 
+/** Would a spreadsheet app run this cell value as a formula? (= + - @ tab CR, but not a number) */
+export function isFormulaRisk(value: string): boolean {
+  return value.length >= 2 && /^[=+\-@\t\r]/.test(value) && !NUMBER.test(value.trim());
+}
+
+const GUARD = 'formula-guard';
+const shown = (c: string) => (c === '\t' ? 'a tab' : c === '\r' ? 'a carriage return' : `“${c}”`);
+
 /**
- * Formula-injection guard (section 17, decision D8): a text cell that starts with
- * = + - @ (or tab/CR) gets a leading apostrophe so spreadsheet apps don't run it.
- * Proposed as a visible change, never applied silently.
+ * Formula-injection guard (section 17, decisions D8 and D11): proposes inserting an
+ * apostrophe at the start of every cell that could start with = + - @ (or tab/CR) in
+ * the FINAL output: as it is now, with the default decisions, or with every change
+ * accepted (full-width ＝SUM becomes =SUM in Stage 2). It is a visible change, and
+ * applyCsv only inserts the apostrophe if the final value really is a formula risk.
  */
-export function formulaGuard(value: string): Proposal | null {
-  if (value.length < 2 || !/^[=+\-@\t\r]/.test(value) || NUMBER.test(value.trim())) return null;
-  const first = value[0]!;
-  const shown = first === '\t' ? 'a tab' : first === '\r' ? 'a carriage return' : `“${first}”`;
-  return {
-    start: 0,
-    end: 1,
-    from: first,
-    to: `'${first}`,
-    stage: 'safety',
-    kind: 'formula-guard',
-    reason: `Starts with ${shown}, so a spreadsheet app could run it as a formula; an apostrophe makes it plain text`,
-    confidence: 'high',
-  };
+export function formulaGuards(doc: CsvDoc, changes: readonly Change[]): Change[] {
+  const groups = groupByUnit(changes);
+  const allGroups = groupByUnit(changes.map((c) => ({ ...c, accepted: true })));
+  const header = headerFor(doc);
+  const guards: Change[] = [];
+  for (const cell of doc.cells) {
+    const id = cellUnitId(cell.row, cell.column);
+    const list = groups.get(id);
+    const finals = list
+      ? [
+          cell.value,
+          applyToUnit(id, cell.value, list),
+          applyToUnit(id, cell.value, allGroups.get(id)!),
+        ]
+      : [cell.value];
+    const risky = finals.findIndex(isFormulaRisk);
+    if (risky < 0) continue;
+    const first = finals[risky]![0]!;
+    const h = header(cell.row, cell.column);
+    const when =
+      risky === 0
+        ? `Starts with ${shown(first)}`
+        : `Will start with ${shown(first)} once the other changes are applied`;
+    guards.push({
+      id: `s${guards.length + 1}`,
+      stage: 'safety',
+      kind: GUARD,
+      from: '',
+      to: "'",
+      reason: `${when}, so a spreadsheet app could run it as a formula; an apostrophe in front makes it plain text`,
+      confidence: 'high',
+      anchor: { kind: 'original', unit: id, start: 0, end: 0 },
+      location: {
+        type: 'csv',
+        row: cell.row,
+        column: cell.column,
+        ...(h !== undefined ? { header: h } : {}),
+        charPos: 1,
+      },
+      accepted: true,
+    });
+  }
+  return guards;
 }
 
 function needsQuotes(value: string, delimiter: string): boolean {
@@ -224,15 +263,28 @@ function groupByUnit(changes: readonly Change[]): Map<string, Change[]> {
   return groups;
 }
 
-/** Splice writer: rewrites only edited cells, keeping their original quoting. */
+/**
+ * Splice writer: rewrites only edited cells, keeping their original quoting. An
+ * applied formula guard inserts its apostrophe only if the cell's final value is a
+ * formula risk (so rejecting the change that made it one also drops the apostrophe).
+ */
 export function applyCsv(doc: CsvDoc, changes: readonly Change[]): CsvDoc {
   const groups = groupByUnit(changes);
+  const byId = indexById(changes);
+  const memo = new Map<string, boolean>();
   let out = '';
   let pos = 0;
   for (const cell of doc.cells) {
-    const list = groups.get(cellUnitId(cell.row, cell.column));
+    const id = cellUnitId(cell.row, cell.column);
+    const list = groups.get(id);
     if (!list) continue;
-    const value = applyToUnit(cellUnitId(cell.row, cell.column), cell.value, list);
+    const guarded = list.some((c) => c.kind === GUARD && isApplied(c, byId, memo));
+    let value = applyToUnit(
+      id,
+      cell.value,
+      list.filter((c) => c.kind !== GUARD),
+    );
+    if (guarded && isFormulaRisk(value)) value = `'${value}`;
     if (value === cell.value) continue;
     const raw = cell.quoted || needsQuotes(value, doc.delimiter) ? quote(value) : value;
     out += doc.source.slice(pos, cell.start) + raw;

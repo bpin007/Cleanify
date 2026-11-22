@@ -3,7 +3,7 @@
  * Valid text in many languages: Stage 1 must propose ZERO changes.
  */
 import { describe, expect, it } from 'vitest';
-import { analyze, parseText } from '../src/index';
+import { analyze, applyChanges, parseText, render } from '../src/index';
 import { byStage, readCorpus } from './helpers';
 
 const corpus = readCorpus();
@@ -32,5 +32,19 @@ describe('must not change: Stage 1 leaves valid text alone', () => {
       const { changes } = analyze(parseText(line), { stages: { encoding: true, ascii: false } });
       expect(byStage(changes, 'encoding'), line).toEqual([]);
     }
+  });
+});
+
+describe('must not change: real German text containing Ä… (review fix 2)', () => {
+  const lines = [
+    'Wörter mit Ä… gibt es viele: Ärger, Äpfel, Ähre.',
+    'Liste der Umlaute: Ä… Ö… Ü… und ß.',
+    'Kapitel Ä…, dann Kapitel Ö.',
+  ];
+  it.each(lines)('%s: applying the default decisions leaves it unchanged', (line) => {
+    const doc = parseText(line);
+    const { changes } = analyze(doc);
+    expect(render(applyChanges(doc, changes))).toBe(line);
+    for (const c of changes) expect(c).toMatchObject({ confidence: 'medium', accepted: false });
   });
 });

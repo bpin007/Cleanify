@@ -144,6 +144,31 @@ export interface AnalysisResult {
   warnings: EngineWarning[];
 }
 
+/** A character that is still not ASCII in the output (review fix 3). */
+export interface RemainingChar {
+  char: string;
+  codePoint: number;
+  /** Where it is in the OUTPUT document (unlike `Change.location`, which points into the original). */
+  location: Location;
+}
+
+/** What is still worth telling the user about an output document. */
+export interface OutputReport {
+  /**
+   * Characters that are still not ASCII. Filled only when the ASCII stage is on, so the
+   * UI can say "N characters are still not ASCII" (rejected repairs, scripts kept as they are, emoji…).
+   */
+  nonAscii: RemainingChar[];
+  /**
+   * CSV cells (output locations, charPos 1) that a spreadsheet app could still run as a
+   * formula, e.g. because the user rejected the guard. Empty when the guard is switched off.
+   */
+  formulaRisks: Location[];
+}
+
+/** The result of `applyChanges`: the new document plus its report. */
+export type AppliedDoc = Doc & { report: OutputReport };
+
 export interface SerializeOptions {
   /** Output encoding. Default: the input's encoding for decoded docs, else UTF-8. */
   encoding?: EncodingName;

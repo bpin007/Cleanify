@@ -57,15 +57,9 @@ function findBoms(text: string): Proposal[] {
   return out;
 }
 
-export interface AnalyzeExtras {
-  /** Extra top-level proposals per unit on the original text (e.g. the CSV formula guard). */
-  extraProposals?: (unit: PipelineUnit) => Proposal[];
-}
-
 export function analyzeUnits(
   units: readonly PipelineUnit[],
   options: PipelineOptions = {},
-  extras: AnalyzeExtras = {},
 ): AnalysisResult {
   const stage1 = options.stages?.encoding ?? true;
   const stage2 = options.stages?.ascii ?? false;
@@ -79,6 +73,8 @@ export function analyzeUnits(
   const changes: Change[] = [];
   const warnings: EngineWarning[] = [];
   let mojibakeChars = 0;
+  let clearRepairs = 0;
+  const ambiguous: Change[] = [];
   let nonAsciiChars = 0;
 
   units.forEach((unit, unitIndex) => {
@@ -119,8 +115,10 @@ export function analyzeUnits(
         });
         out += text.slice(pos, p.start);
       }
-      const change = toChange(p, p.start);
+      const change = toChange(p, p.start, p.ambiguous ? { accepted: false } : {});
       changes.push(change);
+      if (p.ambiguous) ambiguous.push(change);
+      else if (p.kind === 'mojibake' && p.confidence === 'high') clearRepairs++;
       if (p.kind === 'mojibake') mojibakeChars += [...p.from].length;
       segments.push({
         origStart: p.start,
@@ -171,9 +169,6 @@ export function analyzeUnits(
       });
     }
 
-    // ── Extra top-level proposals (e.g. CSV formula guard) ───────────────
-    for (const p of extras.extraProposals?.(unit) ?? []) changes.push(toChange(p, p.start));
-
     // ── Stage 2 on Stage 1's output ──────────────────────────────────────
     if (!stage2) return;
     for (const p of findStage2(out, options.ascii ?? {})) {
@@ -199,6 +194,15 @@ export function analyzeUnits(
       }
     }
   });
+
+  // Ambiguous pairs like `Ä…` (D11): accepted only when the same file has clear repairs.
+  for (const c of ambiguous) {
+    c.accepted = clearRepairs > 0;
+    c.reason +=
+      clearRepairs > 0
+        ? '. Accepted because other text in this file is clearly garbled.'
+        : '. Not accepted because nothing else in this file looks garbled.';
+  }
 
   if (mojibakeChars >= 6 && mojibakeChars >= nonAsciiChars * 0.5) {
     warnings.push({

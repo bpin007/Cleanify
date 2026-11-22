@@ -174,6 +174,27 @@ export function findMojibake(text: string): Proposal[] {
 
 const HAS_C1 = /[\u0080-\u009f]/;
 
+/**
+ * Ambiguous pairs (decision D11): a capital letter that real languages use (Ä, Å, Ç,
+ * É, Ö, …; not Ã or Â, which are almost always mojibake) followed by punctuation or a
+ * symbol. `Ä…` is Polish `ą` garbled, but also a real German `Ä` followed by `…`.
+ * Repairs to a Windows-1252 typographic character (`Å“` → `œ`, `Æ’` → `ƒ`) stay
+ * high confidence: they are the most common mojibake there is (section 19 #14).
+ */
+const AMBIGUOUS_LEAD = /^[À-Þ]$/;
+function isAmbiguousPair(from: string, to: string): boolean {
+  if (from.length !== 2 || cp1252Byte(to.charCodeAt(0)) !== undefined) return false;
+  const lead = from[0]!;
+  const next = from[1]!;
+  return (
+    AMBIGUOUS_LEAD.test(lead) &&
+    lead !== 'Ã' &&
+    lead !== 'Â' &&
+    lead !== '×' &&
+    !/[\p{L}\p{N}]/u.test(next)
+  );
+}
+
 function proposalsFor(
   text: string,
   scripts: Set<Plausibility>,
@@ -192,10 +213,24 @@ function proposalsFor(
       passes++;
     }
     const times = passes === 1 ? '' : passes === 2 ? ' twice' : ' three times';
+    const from = text.slice(g.start, g.end);
+    if (passes === 1 && isAmbiguousPair(from, to)) {
+      return {
+        start: g.start,
+        end: g.end,
+        from,
+        to,
+        stage: 'encoding',
+        kind: 'mojibake',
+        reason: `Could be “${to}” garbled (UTF-8 read as Windows-1252), or a real “${from[0]}” followed by “${from.slice(1)}”`,
+        confidence: 'medium',
+        ambiguous: true,
+      };
+    }
     return {
       start: g.start,
       end: g.end,
-      from: text.slice(g.start, g.end),
+      from,
       to,
       stage: 'encoding',
       kind: 'mojibake',
