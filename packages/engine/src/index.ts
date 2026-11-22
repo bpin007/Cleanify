@@ -22,6 +22,15 @@ class NotImplementedError extends Error {
   }
 }
 
+/**
+ * Loads the transliterator (any-ascii, decision D7) only when the user turns
+ * transliteration on, so its ~220 KB never weighs on the first page load.
+ */
+export async function loadTransliterator(): Promise<(text: string) => string> {
+  const mod = await import('any-ascii');
+  return mod.default;
+}
+
 export { detectEncoding } from './decode/detect';
 export { decode } from './decode/decode';
 export { encodeText, UnencodableError } from './charsets/encode';

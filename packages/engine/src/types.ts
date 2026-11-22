@@ -6,7 +6,8 @@
  * 1-based and counted in code points (section 19 #15).
  */
 
-export type Stage = 'encoding' | 'ascii' | 'invisible' | 'translate';
+/** 'safety' = CSV formula-injection guard, shown as proposed changes (decision D8). */
+export type Stage = 'encoding' | 'ascii' | 'invisible' | 'translate' | 'safety';
 export type Confidence = 'high' | 'medium' | 'low';
 
 /** Machine position (decision D3). */
@@ -120,6 +121,8 @@ export interface AsciiOptions {
   emoji?: 'keep' | 'remove' | 'text';
   /** Non-Latin scripts: leave as is (default) or transliterate (`Москва → Moskva`). */
   nonLatin?: 'keep' | 'transliterate';
+  /** The transliterator to use; get it with `await loadTransliterator()` (decision D7). */
+  transliterate?: (text: string) => string;
 }
 
 export interface PipelineOptions {
