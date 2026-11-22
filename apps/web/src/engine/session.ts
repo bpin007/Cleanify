@@ -163,7 +163,8 @@ export class EngineSession {
 
   private suggestedEncoding(): EncodingName {
     const input = this.source?.encoding ?? 'utf-8';
-    const applied = this.changes.filter((_, i) => this.state().applied[i]);
+    const { applied: isOn } = this.state();
+    const applied = this.changes.filter((_, i) => isOn[i]);
     return suggestOutputEncoding(input, applied);
   }
 

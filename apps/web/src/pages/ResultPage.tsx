@@ -118,7 +118,7 @@ export function ResultPage() {
         onJumpOriginal={(offset) => setJump({ row: rowAtOffset(rows, offset), nonce: Date.now() })}
       />
 
-      <div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
         <DiffView rows={rows} jump={jump} onSelect={setFocusId} />
         <ChangeList
           changes={data.changes}

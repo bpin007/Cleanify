@@ -76,6 +76,7 @@ export function analyzeUnits(
   let mojibakeChars = 0;
   let clearRepairs = 0;
   const ambiguous: Change[] = [];
+  const stage1ById = new Map<string, Change>();
   let nonAsciiChars = 0;
 
   units.forEach((unit, unitIndex) => {
@@ -119,6 +120,7 @@ export function analyzeUnits(
       }
       const change = toChange(p, p.start, p.ambiguous ? { accepted: false } : {});
       changes.push(change);
+      stage1ById.set(change.id, change);
       if (p.ambiguous) ambiguous.push(change);
       else if (p.kind === 'mojibake' && p.confidence === 'high') clearRepairs++;
       if (p.kind === 'mojibake') mojibakeChars += [...p.from].length;
@@ -143,10 +145,23 @@ export function analyzeUnits(
       out += text.slice(pos);
     }
 
-    const segmentAt = (offset: number): Segment =>
-      segments.find((s) => offset >= s.outStart && offset < s.outEnd) ??
-      segments.find((s) => offset >= s.outStart && offset <= s.outEnd) ??
-      segments[segments.length - 1]!;
+    // Segments are in output order. Binary search for the last one starting at or
+    // before the offset (a non-empty one there contains it); at a boundary or the
+    // very end, fall back to the earliest segment that touches the offset.
+    const segmentAt = (offset: number): Segment => {
+      let lo = 0;
+      let hi = segments.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (segments[mid]!.outStart <= offset) lo = mid;
+        else hi = mid - 1;
+      }
+      const s = segments[lo]!;
+      if (offset >= s.outStart && offset < s.outEnd) return s;
+      let k = lo;
+      while (k > 0 && segments[k - 1]!.outEnd >= offset) k--;
+      return segments[k]!;
+    };
     const toOriginal = (offset: number): number => {
       const s = segmentAt(offset);
       return s.changeId ? s.origStart : s.origStart + (offset - s.outStart);
@@ -181,7 +196,7 @@ export function analyzeUnits(
         const end = start + (p.end - p.start);
         changes.push(toChange({ ...p, start, end }, start));
       } else {
-        const parent = changes.find((c) => c.id === seg.changeId)!;
+        const parent = stage1ById.get(seg.changeId)!;
         changes.push(
           toChange(p, seg.origStart, {
             anchor: {

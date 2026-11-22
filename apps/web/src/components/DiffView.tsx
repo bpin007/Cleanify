@@ -138,7 +138,8 @@ export function DiffView({
       <div
         ref={scroller}
         data-testid="diff-scroller"
-        className="h-[65vh] min-h-80 overflow-auto font-mono text-sm"
+        className="max-h-[65vh] min-h-24 overflow-auto font-mono text-sm"
+        style={{ height: virtualizer.getTotalSize() }}
         tabIndex={0}
         aria-label="Before and after text, scrollable"
       >

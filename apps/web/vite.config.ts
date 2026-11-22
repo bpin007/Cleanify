@@ -16,6 +16,9 @@ export default defineConfig(({ mode }) => {
     // ES-module workers can code-split, so the transliterator (any-ascii, decision D7)
     // stays a separate chunk that loads only when transliteration is turned on.
     worker: { format: 'es' },
+    // The worker's dependencies are only discovered when Clean is first pressed, and
+    // Vite would then reload the page mid-run in dev. Pre-bundle them up front.
+    optimizeDeps: { include: ['papaparse', 'any-ascii'] },
     server: {
       port: 5173,
       strictPort: true,

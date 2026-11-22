@@ -86,7 +86,12 @@ export function ChangeList({ changes, state, focusId, busy, onDecide, onJump }: 
       <h2 className="border-b border-border px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted">
         Changes ({changes.length.toLocaleString('en')})
       </h2>
-      <div ref={scroller} className="h-[65vh] min-h-80 overflow-auto" data-testid="change-list">
+      <div
+        ref={scroller}
+        className="max-h-[65vh] min-h-40 overflow-auto"
+        style={{ height: virtualizer.getTotalSize() }}
+        data-testid="change-list"
+      >
         <ul className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
           {virtualizer.getVirtualItems().map((v) => {
             const item = items[v.index]!;
@@ -150,20 +155,20 @@ function GroupHeader({
   const meta = STAGES[item.stage];
   const Chevron = collapsed ? ChevronRight : ChevronDown;
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-surface-2 px-3 py-2">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-surface-2 px-3 py-2">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={!collapsed}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded text-left"
+        className="flex min-w-0 basis-full items-center gap-2 rounded text-left"
       >
         <Chevron aria-hidden="true" className="size-4 shrink-0 text-muted" />
         <StageIcon stage={item.stage} />
-        <span className="truncate font-medium">{meta.label}</span>
-        <span className="shrink-0 text-xs text-muted">
-          {item.applied.toLocaleString('en')} of {item.total.toLocaleString('en')} applied
-        </span>
+        <span className="font-medium">{meta.label}</span>
       </button>
+      <span className="flex-1 pl-6 text-xs text-muted">
+        {item.applied.toLocaleString('en')} of {item.total.toLocaleString('en')} applied
+      </span>
       <button
         type="button"
         disabled={busy}
@@ -228,7 +233,7 @@ function ChangeRow({
       />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 font-mono text-sm">
-          <span className={applied ? 'line-through decoration-muted' : ''}>{from}</span>
+          <span>{from}</span>
           <span aria-hidden="true" className="text-muted">
             →
           </span>
@@ -241,7 +246,8 @@ function ChangeRow({
         </div>
         <p className="mt-0.5 text-xs text-muted">
           {waiting ? 'Needs the encoding repair it sits in, which is rejected. ' : ''}
-          {c.reason}
+          {/* Many Stage 2 reasons just repeat "é → e", already shown above. */}
+          {c.reason === `${c.from} → ${c.to}` ? '' : c.reason}
         </p>
         <button
           type="button"
