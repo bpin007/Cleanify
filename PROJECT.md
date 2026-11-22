@@ -1,7 +1,7 @@
 # Cleanify — Project Plan
 
-> **Status:** Phase 0 (setup) in progress.
-> **Last updated:** 2026-11-20 (owner corrections 1–11 and decisions D1–D6 applied; Phase 0 in progress)
+> **Status:** Phase 0 approved (merge to `main` pending). Phase 1 (engine) built on `phase-1-engine`, awaiting owner review.
+> **Last updated:** 2026-11-22 (decisions D7–D10 added in Phase 1)
 > **Working name:** Cleanify (kept in one config value so it can be renamed easily)
 
 ---
@@ -1066,6 +1066,10 @@ The cleanup Worker (correction 5) gets its R2 bucket through a Wrangler binding 
 | Very large files in the browser | Tab may run out of memory | Streaming parse, virtualized views, warnings, suggest cloud mode |
 | Name "Cleanify" may be taken | Domain/brand conflict | Name lives in config; check domains before launch; alternatives: Textwash, Unmangle, Plainly |
 | ~~Open: transliteration library choice~~ | — | Decided: any-ascii (D7) |
+| **Known limit (Phase 1):** ambiguous garbled pairs such as `Ä…` | It is both Polish `ą` garbled and a real German `Ä` followed by `…`; the engine repairs it | Shown in the preview with a reason; the user can reject it. Covered by the "must not change" corpus for real-world text |
+| **Known limit (Phase 1):** a single garbled non-Latin letter in otherwise Latin text | Not repaired unless that script already appears in the text (avoids false repairs like `Ï…` → `υ`) | Whole-file mojibake warning still points users at the problem; revisit if real files show this |
+| **Known limit (Phase 1):** rejecting a Stage 1 repair leaves the garbled characters as they are | Stage 2 doesn't convert them (its changes for that spot sat inside the rejected repair) | Acceptable: the user chose to keep that text. A "re-analyse with my decisions" action can be added in Phase 2 if needed |
+| **Known limit (Phase 1):** formula guard is checked on the original cell value | A cell that only starts with `=` after Stage 2 (e.g. full-width `＝SUM`) is not guarded | Rare; revisit when the guard is wired into the UI (Phase 2) |
 | **Open:** email provider | — | Pick a card-free one in Phase 3 |
 | **Open:** which languages LibreTranslate loads | — | Decide in Phase 4 based on expected users (more languages = more memory) |
 | **Open:** is Agenda still maintained? | An abandoned job library is a long-term liability | Check before Phase 3. If abandoned, propose a maintained fork or a small Mongo-backed job collection with polling, and **ask the owner before switching** |

@@ -153,3 +153,17 @@ describe('warnings scan', () => {
     expect(scanWarnings(text)).toEqual([]);
   });
 });
+
+describe('loadTransliterator (decision D7)', () => {
+  it('lazily loads any-ascii and plugs into analyze', async () => {
+    const { analyze, applyChanges, loadTransliterator, parseText, render } =
+      await import('../src/index');
+    const transliterate = await loadTransliterator();
+    const doc = parseText('Москва – Αθήνα');
+    const { changes } = analyze(doc, {
+      stages: { ascii: true },
+      ascii: { nonLatin: 'transliterate', transliterate },
+    });
+    expect(render(applyChanges(doc, changes))).toBe('Moskva - Athina');
+  });
+});

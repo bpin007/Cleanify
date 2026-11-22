@@ -133,6 +133,10 @@ export interface PipelineOptions {
     ascii?: boolean;
   };
   ascii?: AsciiOptions;
+  safety?: {
+    /** CSV formula-injection guard, proposed as changes (decision D8). Default on. */
+    formulaGuard?: boolean;
+  };
 }
 
 export interface AnalysisResult {
