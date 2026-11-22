@@ -1,6 +1,9 @@
 /**
  * @cleanify/engine — public entry point (PROJECT.md section 13).
  */
+import { encodeText } from './charsets/encode';
+import { applyText, textUnits } from './formats/text';
+import { analyzeUnits } from './pipeline/analyze';
 import type {
   AnalysisResult,
   Change,
@@ -8,7 +11,6 @@ import type {
   Doc,
   PipelineOptions,
   SerializeOptions,
-  TextDoc,
 } from './types';
 
 export type * from './types';
@@ -35,10 +37,16 @@ export { detectEncoding } from './decode/detect';
 export { decode } from './decode/decode';
 export { encodeText, UnencodableError } from './charsets/encode';
 export type { ExternalEncoder, UnencodableChar } from './charsets/encode';
-
-export function parseText(_text: string): TextDoc {
-  throw new NotImplementedError('parseText');
-}
+export { parseText } from './formats/text';
+export {
+  ChangeModelError,
+  appliedIds,
+  canAccept,
+  isApplied,
+  setDecision,
+  setGroupDecision,
+  validateChanges,
+} from './changes/model';
 
 export function parseCsv(
   _source: string,
@@ -47,19 +55,29 @@ export function parseCsv(
   throw new NotImplementedError('parseCsv');
 }
 
-export function analyze(_doc: Doc, _options?: PipelineOptions): AnalysisResult {
-  throw new NotImplementedError('analyze');
+/** Proposes changes for a document (Stage 1, Stage 2 and warnings). */
+export function analyze(doc: Doc, options: PipelineOptions = {}): AnalysisResult {
+  if (doc.format === 'text') return analyzeUnits(textUnits(doc), options);
+  throw new NotImplementedError('analyze (csv)');
 }
 
-export function applyChanges(_doc: Doc, _changes: readonly Change[]): Doc {
-  throw new NotImplementedError('applyChanges');
+/** Applies the accepted changes (respecting dependsOn) and returns the new document. */
+export function applyChanges(doc: Doc, changes: readonly Change[]): Doc {
+  if (doc.format === 'text') return applyText(doc, changes);
+  throw new NotImplementedError('applyChanges (csv)');
 }
 
-/** The document's text after any changes (CSV: the full file text). */
-export function render(_doc: Doc): string {
-  throw new NotImplementedError('render');
+/** The document's text (CSV: the full file text). */
+export function render(doc: Doc): string {
+  return doc.format === 'text' ? doc.text : doc.source;
 }
 
-export function serialize(_doc: Doc, _options?: SerializeOptions): Uint8Array {
-  throw new NotImplementedError('serialize');
+/** Encodes the document to bytes, with the requested encoding and BOMs (default UTF-8, no BOM). */
+export function serialize(doc: Doc, options: SerializeOptions = {}): Uint8Array {
+  return encodeText(
+    render(doc),
+    options.encoding ?? 'utf-8',
+    options.bomCount ?? 0,
+    options.encoder,
+  );
 }

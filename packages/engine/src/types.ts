@@ -145,4 +145,6 @@ export interface SerializeOptions {
   encoding?: EncodingName;
   /** Number of BOMs to write at the start. Default 0. */
   bomCount?: number;
+  /** Encoder for encodings the engine can't write itself (e.g. Shift-JIS via iconv-lite). */
+  encoder?: (text: string, encoding: EncodingName) => Uint8Array;
 }
