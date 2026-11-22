@@ -60,6 +60,7 @@ function findBoms(text: string): Proposal[] {
 export function analyzeUnits(
   units: readonly PipelineUnit[],
   options: PipelineOptions = {},
+  onProgress?: (done: number, total: number) => void,
 ): AnalysisResult {
   const stage1 = options.stages?.encoding ?? true;
   const stage2 = options.stages?.ascii ?? false;
@@ -78,6 +79,7 @@ export function analyzeUnits(
   let nonAsciiChars = 0;
 
   units.forEach((unit, unitIndex) => {
+    onProgress?.(unitIndex, units.length);
     const text = unit.text;
     for (const ch of text) if (ch.codePointAt(0)! >= 0x80) nonAsciiChars++;
 
@@ -194,6 +196,8 @@ export function analyzeUnits(
       }
     }
   });
+
+  onProgress?.(units.length, units.length);
 
   // Ambiguous pairs like `Ä…` (D11): accepted only when the same file has clear repairs.
   for (const c of ambiguous) {

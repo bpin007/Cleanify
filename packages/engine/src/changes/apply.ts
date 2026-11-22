@@ -12,7 +12,32 @@
 import type { Change } from '../types';
 import { ChangeModelError, indexById, isApplied } from './model';
 
+/** One applied top-level change of a unit and the text it produces (children included). */
+export interface AppliedEdit {
+  change: Change;
+  start: number;
+  end: number;
+  output: string;
+}
+
 export function applyToUnit(unit: string, original: string, changes: readonly Change[]): string {
+  let text = original;
+  // Edits come back highest start first, so splicing never shifts an offset.
+  for (const e of appliedEdits(unit, original, changes)) {
+    text = text.slice(0, e.start) + e.output + text.slice(e.end);
+  }
+  return text;
+}
+
+/**
+ * The applied top-level edits of a unit, highest start first, each with its final
+ * output. Throws ChangeModelError on offsets outside the unit or overlaps.
+ */
+export function appliedEdits(
+  unit: string,
+  original: string,
+  changes: readonly Change[],
+): AppliedEdit[] {
   const byId = indexById(changes);
   const memo = new Map<string, boolean>();
   const applied = (c: Change) => isApplied(c, byId, memo);
@@ -55,7 +80,7 @@ export function applyToUnit(unit: string, original: string, changes: readonly Ch
   }
   top.sort(byStartDesc);
 
-  let text = original;
+  const edits: AppliedEdit[] = [];
   // Working from the end, each change must end at or before the previous change's start.
   let limit = original.length;
   for (const c of top) {
@@ -65,10 +90,10 @@ export function applyToUnit(unit: string, original: string, changes: readonly Ch
       throw new ChangeModelError(`${c.id}: offsets outside unit ${unit}`);
     }
     if (end > limit) throw new ChangeModelError(`${c.id} overlaps another applied change`);
-    text = text.slice(0, start) + outputOf(c) + text.slice(end);
+    edits.push({ change: c, start, end, output: outputOf(c) });
     limit = start;
   }
-  return text;
+  return edits;
 }
 
 function covers(outer: Change, inner: Change): boolean {

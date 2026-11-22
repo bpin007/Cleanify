@@ -37,6 +37,13 @@ export { parseText } from './formats/text';
 export { parseCsv, detectDelimiter } from './formats/csv';
 export type { CsvOptions } from './formats/csv';
 export { checkOutput } from './report';
+export { preview } from './preview';
+export type { Preview, PreviewEdit, PreviewMark } from './preview';
+
+export interface AnalyzeHooks {
+  /** Called as units (the text, or CSV cells) are analysed: done of total. */
+  onProgress?: (done: number, total: number) => void;
+}
 export {
   ChangeModelError,
   appliedIds,
@@ -48,9 +55,13 @@ export {
 } from './changes/model';
 
 /** Proposes changes for a document (Stage 1, Stage 2, the CSV formula guard, and warnings). */
-export function analyze(doc: Doc, options: PipelineOptions = {}): AnalysisResult {
-  if (doc.format === 'text') return analyzeUnits(textUnits(doc), options);
-  const result = analyzeUnits(csvUnits(doc), options);
+export function analyze(
+  doc: Doc,
+  options: PipelineOptions = {},
+  hooks: AnalyzeHooks = {},
+): AnalysisResult {
+  if (doc.format === 'text') return analyzeUnits(textUnits(doc), options, hooks.onProgress);
+  const result = analyzeUnits(csvUnits(doc), options, hooks.onProgress);
   const guards = (options.safety?.formulaGuard ?? true) ? formulaGuards(doc, result.changes) : [];
   return {
     changes: [...result.changes, ...guards],
