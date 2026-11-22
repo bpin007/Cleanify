@@ -1,78 +1,74 @@
-import { useEffect, useState } from 'react';
-import { fetchHealth } from '../api/health';
-import { ThemeToggle } from '../components/ThemeToggle';
-import { APP_NAME } from '../config';
+/** Home = the tool (PROJECT.md section 8): paste or drop, toggles, Clean. */
+import { Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { PasteDrop, type DraftInput } from '../components/PasteDrop';
+import { PipelineToggles } from '../components/PipelineToggles';
+import { ProgressBar } from '../components/ProgressBar';
+import { useSession } from '../session/SessionContext';
 
-type ApiState = { kind: 'checking' } | { kind: 'ok'; version: string } | { kind: 'down' };
-
-const SWATCHES = [
-  { token: 'fix-encoding', label: 'Encoding repair', className: 'bg-fix-encoding' },
-  { token: 'fix-accent', label: 'Accent / ASCII', className: 'bg-fix-accent' },
-  { token: 'fix-invisible', label: 'Invisible chars', className: 'bg-fix-invisible' },
-  { token: 'fix-translate', label: 'Translation', className: 'bg-fix-translate' },
-];
-
-/**
- * Phase 0 placeholder. The real tool (paste box, drop zone, toggles) arrives in Phase 2.
- * This page only proves the theme tokens, Tailwind and the /api proxy are wired up.
- */
 export function HomePage() {
-  const [api, setApi] = useState<ApiState>({ kind: 'checking' });
+  const session = useSession();
+  const navigate = useNavigate();
+  const [draft, setDraft] = useState<DraftInput>({ kind: 'paste', text: '' });
 
-  useEffect(() => {
-    const ctrl = new AbortController();
-    fetchHealth(ctrl.signal)
-      .then((h) => setApi({ kind: 'ok', version: h.version }))
-      .catch(() => {
-        if (!ctrl.signal.aborted) setApi({ kind: 'down' });
-      });
-    return () => ctrl.abort();
-  }, []);
+  const empty = draft.kind === 'paste' && draft.text.length === 0;
+  const nothingOn = !session.settings.repair && !session.settings.ascii;
+
+  const onClean = async () => {
+    const input =
+      draft.kind === 'paste'
+        ? ({ kind: 'paste', text: draft.text } as const)
+        : ({
+            kind: 'file',
+            name: draft.file.name,
+            format: draft.format,
+            bytes: await draft.file.arrayBuffer(),
+          } as const);
+    if (await session.clean(input)) navigate('/result/local');
+  };
 
   return (
-    <div className="min-h-screen bg-bg text-text">
-      <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-5">
-        <span className="text-lg font-semibold tracking-tight">{APP_NAME}</span>
-        <ThemeToggle />
-      </header>
+    <div className="grid gap-5">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          Fix garbled, messy text in your browser
+        </h1>
+        <p className="mt-2 text-muted">
+          Repairs text like <span className="font-mono">CafÃ©</span>, removes invisible characters
+          and converts to plain ASCII. You review every change before you download.
+        </p>
+      </div>
 
-      <main className="mx-auto max-w-3xl px-4 pb-16">
-        <section className="rounded-2xl border border-border bg-surface p-6 sm:p-8">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Turn broken, messy or foreign text into clean English.
-          </h1>
-          <p className="mt-3 text-muted">
-            Setup skeleton (Phase 0). The cleaning tool arrives in Phase 2.
-          </p>
+      <PasteDrop value={draft} onChange={setDraft} />
+      <PipelineToggles settings={session.settings} onChange={session.setSettings} />
 
-          <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
-            <div className="rounded-lg border border-border p-3">
-              <dt className="text-muted">API</dt>
-              <dd className="mt-1 font-mono" aria-live="polite">
-                {api.kind === 'checking' && 'checking…'}
-                {api.kind === 'ok' && `ok · v${api.version}`}
-                {api.kind === 'down' && 'not reachable (is apps/api running?)'}
-              </dd>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <dt className="text-muted">Engine</dt>
-              <dd className="mt-1 font-mono">not built yet (Phase 1)</dd>
-            </div>
-          </dl>
+      {session.error && (
+        <p
+          role="alert"
+          className="rounded-lg border border-fix-invisible bg-fix-invisible-bg px-4 py-3 text-sm"
+        >
+          Something went wrong: {session.error}
+        </p>
+      )}
 
-          <ul className="mt-6 flex flex-wrap gap-2 text-sm" aria-label="Highlight colours">
-            {SWATCHES.map((s) => (
-              <li
-                key={s.token}
-                className="flex items-center gap-2 rounded-full border border-border px-3 py-1"
-              >
-                <span aria-hidden="true" className={`size-3 rounded-full ${s.className}`} />
-                {s.label}
-              </li>
-            ))}
-          </ul>
-        </section>
-      </main>
+      {session.progress ? (
+        <ProgressBar progress={session.progress} onCancel={session.cancel} />
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={onClean}
+            disabled={empty || nothingOn}
+            className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 font-medium text-on-accent shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Sparkles aria-hidden="true" className="size-4" /> Clean
+          </button>
+          {nothingOn && (
+            <span className="text-sm text-muted">Turn on at least one step above.</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

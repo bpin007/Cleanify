@@ -48,6 +48,7 @@ export {
   ChangeModelError,
   appliedIds,
   canAccept,
+  indexById,
   isApplied,
   setDecision,
   setGroupDecision,

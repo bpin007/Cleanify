@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => {
   return {
     envDir: repoRoot,
     plugins: [react(), tailwindcss()],
+    // ES-module workers can code-split, so the transliterator (any-ascii, decision D7)
+    // stays a separate chunk that loads only when transliteration is turned on.
+    worker: { format: 'es' },
     server: {
       port: 5173,
       strictPort: true,
