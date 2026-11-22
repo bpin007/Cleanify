@@ -1,7 +1,7 @@
 # Cleanify — Project Plan
 
-> **Status:** Phase 0 (setup) in progress.
-> **Last updated:** 2026-11-20 (owner corrections 1–11 and decisions D1–D6 applied; Phase 0 in progress)
+> **Status:** Phase 0 approved (merge to `main` pending). Phase 1 (engine) built on `phase-1-engine`, awaiting owner review.
+> **Last updated:** 2026-11-22 (decisions D7–D11 added in Phase 1)
 > **Working name:** Cleanify (kept in one config value so it can be renamed easily)
 
 ---
@@ -234,7 +234,7 @@ Users who are signed in can add **custom rules**, for example `™ → TM`, `° 
 
 - **BOM:** UTF-8, UTF-16 LE/BE, UTF-32.
 - **UTF-16 without a BOM:** detected from the pattern of zero bytes.
-- **Strict UTF-8:** validated, and if it fails, `jschardet`-style detection picks between Windows-1252, ISO-8859-x and Shift-JIS.
+- **Strict UTF-8:** validated over the whole file, and if it fails, our own detector picks between Windows-1252 (a superset of ISO-8859-1) and Shift-JIS (requires kana). Other legacy encodings (ISO-8859-2/5/7, KOI8-R…) are chosen by the user from a list (decision D9).
 - The detected encoding and how confident the detection is are always shown to the user.
 
 **Encoding on save (decided 2026-11-20):**
@@ -421,7 +421,7 @@ flowchart LR
 | Excel (.xlsx) | **ExcelJS** | Reads and writes .xlsx keeping formulas, numbers, dates and styles (drops charts/pivots, which we detect and warn about) |
 | Excel (.xls/.ods) | **SheetJS Community Edition**, read only, installed from `cdn.sheetjs.com` | The npm `xlsx` package is out of date; the free edition can't write styles, so it is never used for writing |
 | Access | **mdb-reader** | Read .accdb/.mdb |
-| Transliteration | `any-ascii` or `transliteration` (decide in Phase 1) | Non-Latin → Latin |
+| Transliteration | **any-ascii** (decision D7), lazy-loaded | Non-Latin → Latin; best accuracy in our comparison |
 | Encoding on save | **iconv-lite** (lazy-loaded in the browser if large) | Browsers and Node only encode UTF-8 natively |
 | Language detection | `franc` (or `cld3-asm`) | Skip English, choose source language |
 | Translation | Cloudflare Workers AI → MyMemory → self-hosted LibreTranslate | All card-free (section 15) |
@@ -782,7 +782,7 @@ Errors use standard HTTP codes with `{ "error": { "code": "...", "message": "...
 | Parsing safety | Excel/Access parsing in the job runner with time and memory limits; zip-bomb protection |
 | Translation server | LibreTranslate Space requires our API key; key stored only in backend env vars |
 | Secrets | Only in environment variables; `.env` never committed |
-| Spreadsheet export | **Text** cells starting with `= + - @` (or tab/CR) are guarded against formula injection when exporting CSV (option, on by default). The guard applies **only to text cells**: real numbers such as `-42` or `+1.5` are never changed. In `.xlsx`, real formulas are formulas, not text, and are left alone |
+| Spreadsheet export | **Text** cells starting with `= + - @` (or tab/CR) are guarded against formula injection in CSV output (on by default). The guard is shown as **proposed changes** (stage `safety`, decision D8), so the user sees which cells change and can reject them. It is checked on the **final** cell value, after every accepted change (full-width `＝SUM` becomes `=SUM` in Stage 2 and is guarded; decision D11). It applies **only to text cells**: real numbers such as `-42` or `+1.5` are never changed. In `.xlsx`, real formulas are formulas, not text, and are left alone |
 | Anonymous file deletion | Must not depend on the Render server being awake (it sleeps). Primary deletion runs on a Cloudflare Cron Worker (correction 5) |
 
 ---
@@ -982,6 +982,11 @@ The cleanup Worker (correction 5) gets its R2 bucket through a Wrangler binding 
 | 2026-11-20 | **P0-3** Tooling versions: Express 5, Vite 8, Tailwind CSS 4 (CSS-first `@theme` mapped to the section 9 variables), Vitest 5, pnpm 12 via Corepack. Added an `--on-accent` token (white / `#0C0C0D`) for text on accent buttons |
 | 2026-11-20 | **P0-4** Node.js **24 LTS everywhere** (was "20+"): `.nvmrc` = `24`, root `engines` = `>=24 <25`, CI reads `.nvmrc`, `@types/node` ^24, API bundle targets `node24`. Render must be set to Node 24 too (section 21) |
 | 2026-11-20 | **P0-5** Repo uses a repo-local git identity (owner's); history rewritten before the first push. Remote: `github.com/bpin007/cleanify`. The owner merges PRs on GitHub after green CI and review |
+| 2026-11-22 | **D7** Transliteration library: **any-ascii** (ISC, 0 deps), chosen over `transliteration` after testing both on 13 samples: correct symbols (€→EUR, ™→TM), Greek, Hepburn Japanese, emoji shortcodes; 2.4× faster; CJK comes out without spaces. 219 KB gzipped, so it is **loaded lazily** (`loadTransliterator()`) only when the user turns transliteration on (section 11) |
+| 2026-11-22 | **D8** CSV formula-injection guard is shown as **proposed changes** (stage `safety`, kind `formula-guard`, accepted by default) instead of being applied silently at export, so the user sees it and the byte-identical round-trip holds when everything is rejected. Real numbers (`-42`, `+1.5`) are never guarded (sections 13, 17) |
+| 2026-11-22 | **D9** Encoding detection: own detector (BOMs, UTF-16 zero pattern, strict UTF-8, Windows-1252 vs Shift-JIS with kana check), no jschardet. Low-confidence guesses are flagged and the user can pick the encoding manually. Other ISO-8859 variants are read as Windows-1252 unless chosen by hand; revisit if real files need more (section 7) |
+| 2026-11-22 | **D10** Engine details decided in Phase 1 (engineer; owner may override): warnings (data lost, hidden text, bidi controls, look-alikes) are reported **whatever the stage toggles are**, since they never change text; emoji are handled as whole sequences (ZWJ, skin tones, flag tags kept intact); ZWJ/ZWNJ inside non-Latin words (Persian, Indic) are kept; look-alike fixes are proposed but not accepted by default; non-UTF-8 output: Windows-1252 and UTF-16/32 are written natively, other encodings through a pluggable encoder (iconv-lite in Phase 2) |
+| 2026-11-22 | **D11** Phase 1 review fixes (owner): (1) the CSV formula guard is an apostrophe **insertion** proposed for every cell that could start with `= + - @` (tab/CR) in the output (as it is, with the default decisions, or with every change accepted); it is inserted only if the cell's **final** value really is a formula risk, and `applyChanges` reports cells that still are one (e.g. guard rejected). (2) Ambiguous Stage 1 pairs, a real capital such as `Ä`/`Å`/`Ç` (not `Ã`/`Â`) followed by punctuation (`Ä…` = Polish `ą` or German `Ä` + `…`), are **medium** confidence and auto-accepted only when the same file has other high-confidence mojibake repairs; repairs to Windows-1252 typographic characters (`Å“` → `œ`) stay high (section 19 #14). (3) When the ASCII stage is on, `applyChanges` returns a report of characters that are still not ASCII with their locations in the output, for the UI's "N characters are still not ASCII" warning (`checkOutput` does the same for any document) |
 
 ---
 
@@ -1061,7 +1066,10 @@ The cleanup Worker (correction 5) gets its R2 bucket through a Wrangler binding 
 | Mojibake false positives | Wrong "fixes" damage valid text | Scoring + large "must not change" test corpus + user preview |
 | Very large files in the browser | Tab may run out of memory | Streaming parse, virtualized views, warnings, suggest cloud mode |
 | Name "Cleanify" may be taken | Domain/brand conflict | Name lives in config; check domains before launch; alternatives: Textwash, Unmangle, Plainly |
-| **Open:** transliteration library choice | — | Decide in Phase 1 after testing quality |
+| ~~Open: transliteration library choice~~ | — | Decided: any-ascii (D7) |
+| **Known limit (Phase 1):** ambiguous garbled pairs such as `Ä…` | It is both Polish `ą` garbled and a real German `Ä` followed by `…` | Medium confidence; auto-accepted only when the same file has other clear repairs (D11), otherwise shown unaccepted with a reason. A Polish file whose only damage is isolated `Ä…` pairs needs the user to accept them |
+| **Known limit (Phase 1):** a single garbled non-Latin letter in otherwise Latin text | Not repaired unless that script already appears in the text (avoids false repairs like `Ï…` → `υ`) | Whole-file mojibake warning still points users at the problem; revisit if real files show this |
+| **Known limit (Phase 1):** rejecting a Stage 1 repair leaves the garbled characters as they are | Stage 2 doesn't convert them (its changes for that spot sat inside the rejected repair) | Acceptable: the user chose to keep that text. A "re-analyse with my decisions" action can be added in Phase 2 if needed |
 | **Open:** email provider | — | Pick a card-free one in Phase 3 |
 | **Open:** which languages LibreTranslate loads | — | Decide in Phase 4 based on expected users (more languages = more memory) |
 | **Open:** is Agenda still maintained? | An abandoned job library is a long-term liability | Check before Phase 3. If abandoned, propose a maintained fork or a small Mongo-backed job collection with polling, and **ask the owner before switching** |

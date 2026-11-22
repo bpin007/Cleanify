@@ -43,5 +43,8 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Engine coverage (90% minimum, PROJECT.md section 20)
+        run: pnpm --filter @cleanify/engine test:coverage
+
       - name: Build
         run: pnpm build
