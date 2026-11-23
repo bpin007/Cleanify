@@ -10,8 +10,8 @@ export interface Option {
   bomCount: number;
 }
 
-/** Encodings the engine writes itself; others (Shift-JIS…) arrive with iconv-lite. */
-const NATIVE: EncodingName[] = ['utf-8', 'windows-1252', 'utf-16le', 'utf-16be'];
+/** Encodings offered for saving. Shift-JIS is written by iconv-lite, loaded only when chosen. */
+const SAVABLE: EncodingName[] = ['utf-8', 'windows-1252', 'utf-16le', 'utf-16be', 'shift_jis'];
 
 export function saveOptions(source: SourceInfo, suggested: EncodingName): Option[] {
   const inputBom = source.bomCount > 0 ? 1 : 0;
@@ -30,13 +30,17 @@ export function saveOptions(source: SourceInfo, suggested: EncodingName): Option
   };
   const bomFor = (e: EncodingName) =>
     e.startsWith('utf-16') || e.startsWith('utf-32') ? 1 : e === source.encoding ? inputBom : 0;
-  if (NATIVE.includes(suggested) || suggested.startsWith('utf-32'))
+  if (SAVABLE.includes(suggested) || suggested.startsWith('utf-32'))
     add(opt(suggested, bomFor(suggested)));
   add(opt('utf-8', 0));
   add(opt('utf-8', 1));
-  if (source.encoding && (NATIVE.includes(source.encoding) || source.encoding.startsWith('utf-32')))
+  if (
+    source.encoding &&
+    (SAVABLE.includes(source.encoding) || source.encoding.startsWith('utf-32'))
+  )
     add(opt(source.encoding, bomFor(source.encoding)));
   add(opt('windows-1252', 0));
   add(opt('utf-16le', 1));
+  add(opt('shift_jis', 0));
   return list;
 }

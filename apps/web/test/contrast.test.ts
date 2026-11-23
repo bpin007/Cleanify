@@ -46,6 +46,9 @@ describe.each([
       for (const bg of ['bg', 'surface'])
         expect(c(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
     }
+    // Group headers and invisible-character markers sit on surface-2.
+    expect(c('muted', 'surface-2'), 'muted on surface-2').toBeGreaterThanOrEqual(4.5);
+    expect(c('text', 'surface-2'), 'text on surface-2').toBeGreaterThanOrEqual(4.5);
     expect(c('on-accent', 'accent'), 'button text').toBeGreaterThanOrEqual(4.5);
     expect(c('text', 'accent-bg')).toBeGreaterThanOrEqual(4.5);
     expect(c('accent-text', 'accent-bg')).toBeGreaterThanOrEqual(4.5);

@@ -12,10 +12,12 @@ import type {
   Location,
   PreviewEdit,
   PreviewMark,
+  SheetSource,
   Stage,
 } from '@cleanify/engine';
 
-export type InputFormat = 'text' | 'csv';
+/** 'sheet' = Excel, OpenDocument or Access (saved as .xlsx). */
+export type InputFormat = 'text' | 'csv' | 'sheet';
 
 export type CleanInput =
   | { kind: 'paste'; text: string }
@@ -24,6 +26,11 @@ export type CleanInput =
 export interface CleanSettings {
   repair: boolean;
   ascii: boolean;
+  /**
+   * What the ASCII step changes: everything (accents, symbols, invisible characters), or
+   * only invisible and control characters (the "remove invisible characters" tool).
+   */
+  asciiScope: 'all' | 'invisible';
   asciiOptions: Pick<AsciiOptions, 'emoji' | 'nonLatin' | 'guillemets'>;
 }
 
@@ -60,6 +67,10 @@ export interface SourceInfo {
   encodingReason: string | null;
   delimiter: string | null;
   bytes: number;
+  /** Workbooks only: which kind of file it was. */
+  sheetSource: SheetSource | null;
+  /** Workbooks only: number of sheets. */
+  sheetCount: number | null;
 }
 
 export interface AnalyzedData extends ViewData {

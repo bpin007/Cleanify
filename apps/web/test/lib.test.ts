@@ -60,9 +60,10 @@ describe('files', () => {
       format: 'text',
       large: true,
     });
-    const xl = checkFile('book.xlsx', 1);
-    expect(xl.ok).toBe(false);
-    expect(!xl.ok && xl.reason).toMatch(/coming soon/);
+    for (const name of ['book.xlsx', 'old.XLS', 'calc.ods', 'shop.accdb', 'legacy.mdb'])
+      expect(checkFile(name, 1)).toEqual({ ok: true, format: 'sheet', large: false });
+    const xlsm = checkFile('macro.xlsm', 1);
+    expect(!xlsm.ok && xlsm.reason).toMatch(/Save it as \.xlsx/);
     expect(checkFile('photo.png', 1).ok).toBe(false);
     expect(checkFile('Makefile', 1).ok).toBe(false);
   });
@@ -71,5 +72,8 @@ describe('files', () => {
     expect(cleanedName('report.csv')).toBe('report-clean.csv');
     expect(cleanedName('README')).toBe('README-clean');
     expect(cleanedName(null)).toBe('cleaned.txt');
+    expect(cleanedName('book.xlsx', 'sheet')).toBe('book-clean.xlsx');
+    expect(cleanedName('old.xls', 'sheet')).toBe('old-clean.xlsx');
+    expect(cleanedName('shop.accdb', 'sheet')).toBe('shop-clean.xlsx');
   });
 });

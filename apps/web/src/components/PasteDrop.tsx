@@ -3,7 +3,7 @@ import { FileText, Upload, X } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import type { InputFormat } from '../engine/protocol';
-import { ACCEPT, CSV_EXTENSIONS, TEXT_EXTENSIONS, checkFile } from '../lib/files';
+import { ACCEPT, checkFile } from '../lib/files';
 import { formatBytes } from '../lib/labels';
 
 export type DraftInput =
@@ -13,9 +13,10 @@ export type DraftInput =
 interface Props {
   value: DraftInput;
   onChange: (v: DraftInput) => void;
+  placeholder?: string | undefined;
 }
 
-export function PasteDrop({ value, onChange }: Props) {
+export function PasteDrop({ value, onChange, placeholder }: Props) {
   const [dragging, setDragging] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -60,7 +61,8 @@ export function PasteDrop({ value, onChange }: Props) {
           <div>
             <p className="font-medium break-all">{value.file.name}</p>
             <p className="text-sm text-muted">
-              {value.format === 'csv' ? 'CSV' : 'Text'} file · {formatBytes(value.file.size)}
+              {value.format === 'csv' ? 'CSV' : value.format === 'sheet' ? 'Spreadsheet' : 'Text'}{' '}
+              file · {formatBytes(value.file.size)}
             </p>
           </div>
           {value.large && (
@@ -83,7 +85,7 @@ export function PasteDrop({ value, onChange }: Props) {
           aria-describedby={hintId}
           value={value.text}
           onChange={(e) => onChange({ kind: 'paste', text: e.target.value })}
-          placeholder="Paste text here, or drop a file…"
+          placeholder={placeholder ?? 'Paste text here, or drop a file…'}
           spellCheck={false}
           className="block min-h-64 w-full resize-y rounded-xl bg-transparent p-4 font-mono text-sm outline-none placeholder:text-muted"
         />
@@ -99,8 +101,8 @@ export function PasteDrop({ value, onChange }: Props) {
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2.5 text-sm">
         <p id={hintId} className="text-muted">
-          Text ({TEXT_EXTENSIONS.join(', ')}) or {CSV_EXTENSIONS.join('/')} files. Nothing is
-          uploaded.
+          Text, CSV, Excel (.xlsx, .xls), OpenDocument (.ods) or Access (.accdb, .mdb) files.
+          Nothing is uploaded.
         </p>
         <button
           type="button"

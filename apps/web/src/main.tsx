@@ -7,7 +7,9 @@ import { Layout } from './components/Layout';
 import { APP_NAME } from './config';
 import { HomePage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 import { ResultPage } from './pages/ResultPage';
+import { ToolPage } from './pages/ToolPage';
 import { SessionProvider } from './session/SessionContext';
 import './index.css';
 
@@ -24,6 +26,8 @@ createRoot(root).render(
           <Route element={<Layout />}>
             <Route index element={<HomePage />} />
             <Route path="result/local" element={<ResultPage />} />
+            <Route path="tools/:slug" element={<ToolPage />} />
+            <Route path="privacy" element={<PrivacyPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

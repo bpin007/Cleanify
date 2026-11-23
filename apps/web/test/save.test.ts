@@ -11,6 +11,8 @@ const source = (over: Partial<SourceInfo>): SourceInfo => ({
   encodingReason: null,
   delimiter: null,
   bytes: 1,
+  sheetSource: null,
+  sheetCount: null,
   ...over,
 });
 
@@ -22,6 +24,7 @@ describe('saveOptions (decision D1)', () => {
       'UTF-8 with BOM',
       'Windows-1252 (same as the input)',
       'UTF-16 LE',
+      'Shift-JIS',
     ]);
   });
 
@@ -41,9 +44,10 @@ describe('saveOptions (decision D1)', () => {
     expect(saveOptions(source({ encoding: null }), 'utf-8')[0]!.key).toBe('utf-8:0');
   });
 
-  it('skips encodings the browser cannot write yet (Shift-JIS until iconv-lite)', () => {
+  it('offers Shift-JIS (written by lazily loaded iconv-lite) first for a Shift-JIS file', () => {
     const opts = saveOptions(source({ encoding: 'shift_jis' }), 'shift_jis');
-    expect(opts.some((o) => o.encoding === 'shift_jis')).toBe(false);
-    expect(opts[0]!.encoding).toBe('utf-8');
+    expect(opts[0]).toMatchObject({ encoding: 'shift_jis', bomCount: 0 });
+    expect(opts[0]!.label).toBe('Shift-JIS (same as the input)');
+    expect(opts.filter((o) => o.encoding === 'shift_jis')).toHaveLength(1);
   });
 });

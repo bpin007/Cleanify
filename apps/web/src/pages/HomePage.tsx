@@ -1,32 +1,14 @@
 /** Home = the tool (PROJECT.md section 8): paste or drop, toggles, Clean. */
-import { Sparkles } from 'lucide-react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { PasteDrop, type DraftInput } from '../components/PasteDrop';
-import { PipelineToggles } from '../components/PipelineToggles';
-import { ProgressBar } from '../components/ProgressBar';
-import { useSession } from '../session/SessionContext';
+import { useEffect } from 'react';
+import { Link } from 'react-router';
+import { CleanTool } from '../components/CleanTool';
+import { APP_NAME } from '../config';
+import { TOOLS } from './tools';
 
 export function HomePage() {
-  const session = useSession();
-  const navigate = useNavigate();
-  const [draft, setDraft] = useState<DraftInput>({ kind: 'paste', text: '' });
-
-  const empty = draft.kind === 'paste' && draft.text.length === 0;
-  const nothingOn = !session.settings.repair && !session.settings.ascii;
-
-  const onClean = async () => {
-    const input =
-      draft.kind === 'paste'
-        ? ({ kind: 'paste', text: draft.text } as const)
-        : ({
-            kind: 'file',
-            name: draft.file.name,
-            format: draft.format,
-            bytes: await draft.file.arrayBuffer(),
-          } as const);
-    if (await session.clean(input)) navigate('/result/local');
-  };
+  useEffect(() => {
+    document.title = APP_NAME;
+  }, []);
 
   return (
     <div className="grid gap-5">
@@ -40,35 +22,23 @@ export function HomePage() {
         </p>
       </div>
 
-      <PasteDrop value={draft} onChange={setDraft} />
-      <PipelineToggles settings={session.settings} onChange={session.setSettings} />
+      <CleanTool />
 
-      {session.error && (
-        <p
-          role="alert"
-          className="rounded-lg border border-fix-invisible bg-fix-invisible-bg px-4 py-3 text-sm"
-        >
-          Something went wrong: {session.error}
-        </p>
-      )}
-
-      {session.progress ? (
-        <ProgressBar progress={session.progress} onCancel={session.cancel} />
-      ) : (
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={onClean}
-            disabled={empty || nothingOn}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 font-medium text-on-accent shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Sparkles aria-hidden="true" className="size-4" /> Clean
-          </button>
-          {nothingOn && (
-            <span className="text-sm text-muted">Turn on at least one step above.</span>
-          )}
-        </div>
-      )}
+      <nav aria-label="Single-purpose tools" className="border-t border-border pt-5">
+        <h2 className="text-sm font-medium text-muted">Or start from a single-purpose tool</h2>
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {TOOLS.map((t) => (
+            <li key={t.slug}>
+              <Link
+                to={`/tools/${t.slug}`}
+                className="inline-block rounded-full border border-border px-3 py-1 text-sm hover:bg-surface-2"
+              >
+                {t.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </div>
   );
 }

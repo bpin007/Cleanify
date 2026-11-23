@@ -27,12 +27,15 @@ function downloadBytes(bytes: Uint8Array, name: string) {
 
 interface Props {
   source: SourceInfo;
+  /** Shown next to Download, e.g. "charts and pivot tables will be lost". */
+  exportNote?: string | undefined;
   suggested: EncodingName;
   outputText: () => Promise<string>;
   save: (encoding: EncodingName, bomCount: number) => Promise<SaveResult>;
 }
 
-export function SaveBar({ source, suggested, outputText, save }: Props) {
+export function SaveBar({ source, exportNote, suggested, outputText, save }: Props) {
+  const isSheet = source.format === 'sheet';
   const options = useMemo(() => saveOptions(source, suggested), [source, suggested]);
   const [key, setKey] = useState(options[0]!.key);
   const [blocked, setBlocked] = useState<{
@@ -43,7 +46,10 @@ export function SaveBar({ source, suggested, outputText, save }: Props) {
   const [problem, setProblem] = useState<string | null>(null);
   const selectId = useId();
   const choice = options.find((o) => o.key === key) ?? options[0]!;
-  const fileName = cleanedName(source.encoding === null ? null : source.name);
+  const fileName = cleanedName(
+    source.encoding === null && !isSheet ? null : source.name,
+    source.format,
+  );
 
   const doSave = async (encoding: EncodingName, bomCount: number) => {
     setProblem(null);
@@ -71,21 +77,27 @@ export function SaveBar({ source, suggested, outputText, save }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label htmlFor={selectId} className="text-sm text-muted">
-        Save as
-      </label>
-      <select
-        id={selectId}
-        value={choice.key}
-        onChange={(e) => setKey(e.target.value)}
-        className="rounded-lg border border-border bg-surface px-2 py-2 text-sm"
-      >
-        {options.map((o) => (
-          <option key={o.key} value={o.key}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      {isSheet ? (
+        <span className="text-sm text-muted">Saves as an Excel workbook (.xlsx)</span>
+      ) : (
+        <>
+          <label htmlFor={selectId} className="text-sm text-muted">
+            Save as
+          </label>
+          <select
+            id={selectId}
+            value={choice.key}
+            onChange={(e) => setKey(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-2 py-2 text-sm"
+          >
+            {options.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
       <button
         type="button"
         onClick={() => doSave(choice.encoding, choice.bomCount)}
@@ -93,18 +105,25 @@ export function SaveBar({ source, suggested, outputText, save }: Props) {
       >
         <Download aria-hidden="true" className="size-4" /> Download
       </button>
-      <button
-        type="button"
-        onClick={doCopy}
-        className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface-2"
-      >
-        {copied ? (
-          <Check aria-hidden="true" className="size-4" />
-        ) : (
-          <Copy aria-hidden="true" className="size-4" />
-        )}
-        {copied ? 'Copied' : 'Copy'}
-      </button>
+      {!isSheet && (
+        <button
+          type="button"
+          onClick={doCopy}
+          className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface-2"
+        >
+          {copied ? (
+            <Check aria-hidden="true" className="size-4" />
+          ) : (
+            <Copy aria-hidden="true" className="size-4" />
+          )}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      )}
+      {exportNote && (
+        <p className="w-full text-sm text-fix-invisible-text" data-testid="export-note">
+          {exportNote}
+        </p>
+      )}
       <span aria-live="polite" className="sr-only">
         {copied ? 'Copied to the clipboard' : ''}
       </span>

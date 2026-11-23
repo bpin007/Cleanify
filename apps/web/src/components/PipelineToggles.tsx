@@ -20,14 +20,14 @@ interface ToggleProps {
 function Toggle({ stage, title, description, checked, onChange, disabled, badge }: ToggleProps) {
   const id = useId();
   return (
-    <div className={'flex items-start gap-3 ' + (disabled ? 'opacity-60' : '')}>
+    <div className="flex items-start gap-3">
       <Switch.Root
         id={id}
         checked={checked}
         disabled={disabled}
         onCheckedChange={onChange}
         aria-describedby={`${id}-d`}
-        className="relative mt-0.5 h-6 w-10 shrink-0 rounded-full border border-border bg-surface-2 transition-colors data-[state=checked]:border-accent data-[state=checked]:bg-accent disabled:cursor-not-allowed"
+        className="relative mt-0.5 h-6 w-10 shrink-0 rounded-full border border-border bg-surface-2 transition-colors data-[state=checked]:border-accent data-[state=checked]:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Switch.Thumb className="block size-5 translate-x-0.5 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-4" />
       </Switch.Root>
@@ -130,6 +130,19 @@ export function PipelineToggles({
 
       {settings.ascii && (
         <div className="grid gap-2 border-t border-border pt-4">
+          <Choice
+            label="What to change"
+            value={settings.asciiScope}
+            onChange={(asciiScope) => onChange({ ...settings, asciiScope })}
+            options={[
+              { value: 'all', label: 'Everything' },
+              { value: 'invisible', label: 'Only invisible characters' },
+            ]}
+          />
+        </div>
+      )}
+      {settings.ascii && settings.asciiScope === 'all' && (
+        <div className="grid gap-2">
           <Choice
             label="Emoji"
             value={opts.emoji ?? 'keep'}

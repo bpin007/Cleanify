@@ -1,7 +1,7 @@
 /** Result view (PROJECT.md section 8): summary, warnings, before/after, change list, save. */
 import type { Change, EncodingName, Stage } from '@cleanify/engine';
 import { ArrowLeft } from 'lucide-react';
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { ChangeList } from '../components/ChangeList';
 import { DiffView, type JumpTarget } from '../components/DiffView';
@@ -10,7 +10,7 @@ import { SaveBar } from '../components/SaveBar';
 import { StageIcon } from '../components/StageIcon';
 import { WarningsPanel } from '../components/WarningsPanel';
 import type { SourceInfo } from '../engine/protocol';
-import { ENCODING_LABELS, STAGES, STAGE_ORDER, formatBytes, summary } from '../lib/labels';
+import { ENCODING_LABELS, STAGES, STAGE_ORDER, formatBytes, plural, summary } from '../lib/labels';
 import { buildRows, rowAtOffset, rowAtOutLine } from '../lib/rows';
 import { useSession } from '../session/SessionContext';
 
@@ -19,6 +19,7 @@ export function ResultPage() {
   const { data, view } = session;
   const [jump, setJump] = useState<JumpTarget | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
+  useWarnBeforeLeaving(session.unsaved);
 
   const rows = useMemo(
     () => (data && view ? buildRows(data.original, view.marks, view.edits) : []),
@@ -77,6 +78,11 @@ export function ResultPage() {
         </div>
         <SaveBar
           source={data.source}
+          exportNote={
+            data.warnings.some((w) => w.kind === 'export-drops-parts')
+              ? 'Heads-up: the downloaded workbook won’t have the charts or pivot tables listed below.'
+              : undefined
+          }
           suggested={data.suggestedEncoding}
           outputText={session.outputText}
           save={session.save}
@@ -133,6 +139,31 @@ export function ResultPage() {
   );
 }
 
+/**
+ * Asks before a reload or closing the tab when the user has changed decisions that
+ * aren't downloaded yet. Nothing is stored: results live only in this tab.
+ */
+function useWarnBeforeLeaving(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Older browsers need returnValue set to show the prompt.
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [active]);
+}
+
+const SHEET_LABEL: Record<string, string> = {
+  xlsx: 'Excel workbook',
+  xls: 'Excel 97–2003 workbook',
+  ods: 'OpenDocument spreadsheet',
+  accdb: 'Access database',
+  mdb: 'Access database',
+};
+
 const CONFIDENCE: Record<string, string> = {
   high: 'sure',
   medium: 'fairly sure',
@@ -141,9 +172,13 @@ const CONFIDENCE: Record<string, string> = {
 
 function SourceMeta({ source, onPick }: { source: SourceInfo; onPick: (e: EncodingName) => void }) {
   const id = useId();
+  const isDb = source.sheetSource === 'accdb' || source.sheetSource === 'mdb';
   const parts = [
-    source.format === 'csv' ? 'CSV' : 'Text',
+    source.sheetSource ? SHEET_LABEL[source.sheetSource] : source.format === 'csv' ? 'CSV' : 'Text',
     formatBytes(source.bytes),
+    source.sheetCount !== null
+      ? plural(source.sheetCount, isDb ? ['table', 'tables'] : ['sheet', 'sheets'])
+      : null,
     source.delimiter
       ? `delimiter ${source.delimiter === '\t' ? 'tab' : `“${source.delimiter}”`}`
       : null,

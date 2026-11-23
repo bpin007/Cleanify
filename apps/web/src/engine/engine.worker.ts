@@ -3,6 +3,7 @@
  * The engine Web Worker: all decoding, analysis and applying happens here, off the
  * main thread (PROJECT.md section 8). Nothing leaves the browser.
  */
+import './node-shims';
 import type { FromWorker, ToWorker } from './protocol';
 import { EngineSession } from './session';
 
@@ -38,7 +39,7 @@ self.onmessage = async (event: MessageEvent<ToWorker>) => {
         post({ type: 'output', job: msg.job, text: session.outputText() });
         break;
       case 'serialize': {
-        const r = session.serialize(msg.encoding, msg.bomCount);
+        const r = await session.serialize(msg.encoding, msg.bomCount);
         if (r.ok) post({ type: 'serialized', job: msg.job, bytes: r.bytes }, [r.bytes.buffer]);
         else post({ type: 'unencodable', job: msg.job, encoding: msg.encoding, chars: r.chars });
         break;

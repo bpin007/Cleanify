@@ -10,19 +10,26 @@ import {
   detectEncoding,
   indexById,
   isApplied,
+  loadIconvEncoder,
   loadTransliterator,
   parseCsv,
   parseText,
   preview,
+  readWorkbook,
   render,
+  renderSheet,
   serialize,
+  sheetSourceOf,
   setDecision,
   setGroupDecision,
   suggestOutputEncoding,
+  writeWorkbook,
   type AppliedDoc,
   type Change,
   type Doc,
   type EncodingName,
+  type EngineWarning,
+  type ExternalEncoder,
   type Location,
   type PipelineOptions,
   type RemainingChar,
@@ -63,7 +70,10 @@ export class EngineSession {
   private doc: Doc | null = null;
   private changes: Change[] = [];
   private options: PipelineOptions = {};
+  /** Options for the output report: no "still not ASCII" list when only invisible characters are cleaned. */
+  private reportOptions: PipelineOptions = {};
   private output: AppliedDoc | null = null;
+  private iconv: Promise<ExternalEncoder> | null = null;
 
   async analyze(input: CleanInput, settings: CleanSettings, progress: Progress) {
     progress('Reading', 0.02);
@@ -78,8 +88,10 @@ export class EngineSession {
         encodingReason: null,
         delimiter: null,
         bytes: input.text.length,
+        sheetSource: null,
+        sheetCount: null,
       };
-      return this.run(input.text, [], settings, progress);
+      return this.run(parseText(input.text), [], settings, progress);
     }
     this.bytes = new Uint8Array(input.bytes);
     this.source = {
@@ -91,14 +103,28 @@ export class EngineSession {
       encodingReason: null,
       delimiter: null,
       bytes: this.bytes.length,
+      sheetSource: null,
+      sheetCount: null,
     };
+    if (input.format === 'sheet') {
+      const kind = sheetSourceOf(input.name);
+      if (!kind) throw new Error(`${input.name} is not a workbook this tool can read`);
+      progress(
+        kind === 'accdb' || kind === 'mdb' ? 'Reading the database' : 'Reading the workbook',
+        0.05,
+      );
+      const doc = await readWorkbook(this.bytes, kind);
+      this.source.sheetSource = kind;
+      this.source.sheetCount = doc.sheets.length;
+      return this.run(doc, [], settings, progress);
+    }
     return this.decodeAndRun(undefined, settings, progress);
   }
 
   /** Runs again with an encoding the user picked (decision D9). Decisions are reset. */
   async reanalyze(encoding: EncodingName, settings: CleanSettings, progress: Progress) {
-    if (!this.bytes || !this.source)
-      throw new Error('Only files can be read with another encoding');
+    if (!this.bytes || !this.source || this.source.format === 'sheet')
+      throw new Error('Only text and CSV files can be read with another encoding');
     return this.decodeAndRun(encoding, settings, progress);
   }
 
@@ -117,19 +143,20 @@ export class EngineSession {
       confidence: decoded.confidence,
       encodingReason: encoding ? 'Chosen by you' : detected.reason,
     };
-    return this.run(decoded.text, decoded.warnings, settings, progress);
+    progress('Reading the structure', 0.1);
+    const doc = this.source.format === 'csv' ? parseCsv(decoded.text) : parseText(decoded.text);
+    if (doc.format === 'csv') this.source.delimiter = doc.delimiter;
+    return this.run(doc, decoded.warnings, settings, progress);
   }
 
   private async run(
-    text: string,
-    decodeWarnings: AnalyzedData['warnings'],
+    doc: Doc,
+    decodeWarnings: EngineWarning[],
     settings: CleanSettings,
     progress: Progress,
   ): Promise<AnalyzedData> {
-    progress('Reading the structure', 0.1);
     const source = this.source!;
-    this.doc = source.format === 'csv' ? parseCsv(text) : parseText(text);
-    if (this.doc.format === 'csv') source.delimiter = this.doc.delimiter;
+    this.doc = doc;
 
     const ascii = { ...settings.asciiOptions };
     if (settings.ascii && settings.asciiOptions.nonLatin === 'transliterate') {
@@ -137,6 +164,10 @@ export class EngineSession {
       Object.assign(ascii, { transliterate: await loadTransliterator() });
     }
     this.options = { stages: { encoding: settings.repair, ascii: settings.ascii }, ascii };
+    const invisibleOnly = settings.ascii && settings.asciiScope === 'invisible';
+    this.reportOptions = invisibleOnly
+      ? { ...this.options, stages: { encoding: settings.repair, ascii: false } }
+      : this.options;
 
     let last = 0;
     const result = analyze(this.doc, this.options, {
@@ -147,7 +178,11 @@ export class EngineSession {
         progress('Finding changes', 0.2 + 0.7 * (total === 0 ? 1 : done / total));
       },
     });
-    this.changes = result.changes;
+    // Invisible-only: drop accent/symbol proposals. Nothing depends on them (Stage 2
+    // changes only ever depend on Stage 1 repairs), so the rest stays consistent.
+    this.changes = invisibleOnly
+      ? result.changes.filter((c) => c.stage !== 'ascii')
+      : result.changes;
     progress('Preparing the preview', 0.92);
     const view = this.view();
     progress('Done', 1);
@@ -162,6 +197,7 @@ export class EngineSession {
   }
 
   private suggestedEncoding(): EncodingName {
+    if (this.doc?.format === 'sheet') return 'utf-8';
     const input = this.source?.encoding ?? 'utf-8';
     const { applied: isOn } = this.state();
     const applied = this.changes.filter((_, i) => isOn[i]);
@@ -197,7 +233,7 @@ export class EngineSession {
 
   private view(): ViewData {
     const doc = this.doc!;
-    this.output = applyChanges(doc, this.changes, this.options);
+    this.output = applyChanges(doc, this.changes, this.reportOptions);
     const out = this.output;
     const p = preview(doc, this.changes);
     const outLine = this.outLineLookup();
@@ -220,6 +256,17 @@ export class EngineSession {
   /** Output line of a report location, so the UI can scroll to it. */
   private outLineLookup(): (loc: Location) => number {
     const out = this.output!;
+    if (out.format === 'sheet') {
+      const { text, valueStarts } = renderSheet(out);
+      const line = lineIndex(text);
+      const starts = new Map<string, number>();
+      out.cells.forEach((c, i) => starts.set(`${c.sheet}!${c.address}`, valueStarts[i]!));
+      return (loc) => {
+        if (loc.type !== 'sheet') return 1;
+        const start = starts.get(`${loc.sheet}!${loc.cell}`);
+        return start === undefined ? 1 : line(start);
+      };
+    }
     if (out.format !== 'csv') return (loc) => (loc.type === 'text' ? loc.line : 1);
     const line = lineIndex(out.source);
     const starts = new Map<string, number>();
@@ -235,12 +282,20 @@ export class EngineSession {
     return render(this.output!);
   }
 
-  serialize(
+  /** Workbooks are written as .xlsx (encoding ignored); Shift-JIS loads iconv-lite first. */
+  async serialize(
     encoding: EncodingName,
     bomCount: number,
-  ): { ok: true; bytes: Uint8Array } | { ok: false; chars: UnencodableItem[] } {
+  ): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; chars: UnencodableItem[] }> {
+    const out = this.output!;
+    if (out.format === 'sheet') return { ok: true, bytes: await writeWorkbook(out) };
     try {
-      return { ok: true, bytes: serialize(this.output!, { encoding, bomCount }) };
+      const encoder =
+        encoding === 'shift_jis' ? await (this.iconv ??= loadIconvEncoder()) : undefined;
+      return {
+        ok: true,
+        bytes: serialize(out, encoder ? { encoding, bomCount, encoder } : { encoding, bomCount }),
+      };
     } catch (e) {
       if (!(e instanceof UnencodableError)) throw e;
       const text = this.outputText();

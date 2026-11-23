@@ -32,6 +32,8 @@ interface SessionValue {
   data: AnalyzedData | null;
   view: ViewData | null;
   busy: boolean;
+  /** The user changed decisions since the last download (or since cleaning). */
+  unsaved: boolean;
   clean: (input: CleanInput) => Promise<boolean>;
   reanalyze: (encoding: EncodingName) => Promise<boolean>;
   decide: (decisions: Decision[]) => Promise<void>;
@@ -53,6 +55,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AnalyzedData | null>(null);
   const [view, setView] = useState<ViewData | null>(null);
   const [busy, setBusy] = useState(false);
+  const [unsaved, setUnsaved] = useState(false);
 
   const run = useCallback(
     async (request: Parameters<EngineClient['request']>[0], transfer: Transferable[] = []) => {
@@ -67,6 +70,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (reply.type !== 'analyzed') throw new Error(`Unexpected reply ${reply.type}`);
         setData(reply.data);
         setView(reply.data);
+        setUnsaved(false);
         return true;
       } catch (e) {
         if (!(e instanceof CancelledError)) setError(e instanceof Error ? e.message : String(e));
@@ -93,7 +97,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setBusy(true);
     try {
       const reply = await engine().request({ type: 'decide', decisions });
-      if (reply.type === 'decided') setView(reply.data);
+      if (reply.type === 'decided') {
+        setView(reply.data);
+        setUnsaved(true);
+      }
     } catch (e) {
       if (!(e instanceof CancelledError)) setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -110,7 +117,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const save = useCallback(
     async (encoding: EncodingName, bomCount: number): Promise<SaveResult> => {
       const reply = await engine().request({ type: 'serialize', encoding, bomCount });
-      if (reply.type === 'serialized') return { ok: true, bytes: reply.bytes };
+      if (reply.type === 'serialized') {
+        setUnsaved(false);
+        return { ok: true, bytes: reply.bytes };
+      }
       if (reply.type === 'unencodable')
         return { ok: false, encoding: reply.encoding, chars: reply.chars };
       throw new Error('Could not save the file');
@@ -123,12 +133,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setProgress(null);
     setData(null);
     setView(null);
+    setUnsaved(false);
   }, []);
 
   const reset = useCallback(() => {
     setData(null);
     setView(null);
     setError(null);
+    setUnsaved(false);
   }, []);
 
   const value = useMemo<SessionValue>(
@@ -140,6 +152,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       data,
       view,
       busy,
+      unsaved,
       clean,
       reanalyze,
       decide,
@@ -155,6 +168,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       data,
       view,
       busy,
+      unsaved,
       clean,
       reanalyze,
       decide,

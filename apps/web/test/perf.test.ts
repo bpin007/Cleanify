@@ -17,7 +17,12 @@ describe('large input', () => {
     const t0 = performance.now();
     const data = await s.analyze(
       { kind: 'file', name: 'big.csv', format: 'csv', bytes },
-      { repair: true, ascii: true, asciiOptions: { emoji: 'keep', nonLatin: 'keep' } },
+      {
+        repair: true,
+        ascii: true,
+        asciiScope: 'all',
+        asciiOptions: { emoji: 'keep', nonLatin: 'keep' },
+      },
       () => {},
     );
     const t1 = performance.now();

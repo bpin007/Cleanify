@@ -61,12 +61,9 @@ function Segment({
       : '',
   ].join(' ');
   return (
-    <mark
-      className={cls}
-      title={label}
-      aria-label={`${label}: ${seg.text || 'nothing'}`}
-      onClick={() => onSelect(id)}
-    >
+    <mark className={cls} title={label} onClick={() => onSelect(id)}>
+      {/* <mark> can't carry aria-label, so screen readers get the kind of change as text. */}
+      <span className="sr-only">{seg.text ? `${label}: ` : `${label}, nothing here`}</span>
       <Text text={seg.text} />
     </mark>
   );
