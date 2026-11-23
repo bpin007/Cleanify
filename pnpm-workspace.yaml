@@ -3,3 +3,7 @@ packages:
   - packages/*
 allowBuilds:
   esbuild: true
+  # Native password hashing (prebuilt binaries; the install script picks the right one).
+  argon2: true
+  # Its postinstall downloads MongoDB; it downloads on first use instead (tests, local dev).
+  mongodb-memory-server: false

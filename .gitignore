@@ -30,3 +30,6 @@ Thumbs.db
 # Test artefacts
 playwright-report/
 test-results/
+
+# Local API data (dev MongoDB, local-disk storage)
+.data/

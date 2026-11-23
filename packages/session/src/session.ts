@@ -73,6 +73,7 @@ export class EngineSession {
   /** Options for the output report: no "still not ASCII" list when only invisible characters are cleaned. */
   private reportOptions: PipelineOptions = {};
   private output: AppliedDoc | null = null;
+  private warnings: EngineWarning[] = [];
   private iconv: Promise<ExternalEncoder> | null = null;
 
   async analyze(input: CleanInput, settings: CleanSettings, progress: Progress) {
@@ -155,7 +156,6 @@ export class EngineSession {
     settings: CleanSettings,
     progress: Progress,
   ): Promise<AnalyzedData> {
-    const source = this.source!;
     this.doc = doc;
 
     const ascii = { ...settings.asciiOptions };
@@ -183,15 +183,22 @@ export class EngineSession {
     this.changes = invisibleOnly
       ? result.changes.filter((c) => c.stage !== 'ascii')
       : result.changes;
+    this.warnings = [...decodeWarnings, ...result.warnings];
     progress('Preparing the preview', 0.92);
-    const view = this.view();
+    const data = this.current();
     progress('Done', 1);
+    return data;
+  }
+
+  /** The whole result as it stands now, decisions included (the API's cloud jobs use it). */
+  current(): AnalyzedData {
+    if (!this.doc || !this.source) throw new Error('Nothing analysed yet');
     return {
-      ...view,
-      source,
+      ...this.view(),
+      source: this.source,
       original: render(this.doc),
       changes: this.changes,
-      warnings: [...decodeWarnings, ...result.warnings],
+      warnings: this.warnings,
       suggestedEncoding: this.suggestedEncoding(),
     };
   }

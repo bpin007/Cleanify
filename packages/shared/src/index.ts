@@ -17,3 +17,5 @@ export function isHealthResponse(value: unknown): value is HealthResponse {
   const v = value as Record<string, unknown>;
   return v['status'] === 'ok' && typeof v['name'] === 'string' && typeof v['version'] === 'string';
 }
+
+export * from './api';
