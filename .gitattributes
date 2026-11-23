@@ -3,3 +3,4 @@
 
 # Test fixtures are exact bytes (broken encodings, CRLF, BOMs) — never touch them.
 packages/engine/test/fixtures/** -text
+apps/web/e2e/fixtures/** -text
