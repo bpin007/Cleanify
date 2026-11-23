@@ -108,14 +108,8 @@ export const TOOLS: Tool[] = [
     preset: { repair: true, ascii: false },
     comingSoon:
       'Translation needs our server, so it arrives with the cloud features in a later update. You can already repair and clean your text below.',
-    sections: [
-      {
-        heading: 'How it will work',
-        body: [
-          'Only the pieces that need translating are sent, after numbers, emails, links and IDs are hidden, never the whole file. In browser mode everything else stays on your device.',
-        ],
-      },
-    ],
+    // Privacy details are added with the feature (owner decision, Phase 2 review).
+    sections: [],
   },
   {
     slug: 'csv-cleaner',

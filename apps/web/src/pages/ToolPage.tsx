@@ -55,18 +55,20 @@ export function ToolPage() {
 
       <CleanTool placeholder={tool.placeholder} />
 
-      <article className="grid max-w-3xl gap-5 border-t border-border pt-6">
-        {tool.sections.map((s) => (
-          <section key={s.heading}>
-            <h2 className="text-lg font-semibold">{s.heading}</h2>
-            {s.body.map((p) => (
-              <p key={p} className="mt-2 text-muted">
-                {p}
-              </p>
-            ))}
-          </section>
-        ))}
-      </article>
+      {tool.sections.length > 0 && (
+        <article className="grid max-w-3xl gap-5 border-t border-border pt-6">
+          {tool.sections.map((s) => (
+            <section key={s.heading}>
+              <h2 className="text-lg font-semibold">{s.heading}</h2>
+              {s.body.map((p) => (
+                <p key={p} className="mt-2 text-muted">
+                  {p}
+                </p>
+              ))}
+            </section>
+          ))}
+        </article>
+      )}
     </div>
   );
 }

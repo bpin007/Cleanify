@@ -6,6 +6,11 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
 const CI = Boolean(process.env['CI']);
+// Firefox and WebKit run nightly and on pull requests into main (owner decision,
+// Phase 2 review); every push runs Chromium only.
+const ALL_BROWSERS = Boolean(process.env['E2E_ALL_BROWSERS']);
+// Layout and axe results don't depend on the browser engine: Chromium covers them.
+const OTHER_ENGINES_SKIP = /(phone|a11y)\.spec/;
 
 export default defineConfig({
   testDir: 'e2e',
@@ -27,6 +32,16 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
       testMatch: /(phone|a11y)\.spec\.ts/,
     },
+    ...(ALL_BROWSERS
+      ? [
+          {
+            name: 'firefox',
+            use: { ...devices['Desktop Firefox'] },
+            testIgnore: OTHER_ENGINES_SKIP,
+          },
+          { name: 'webkit', use: { ...devices['Desktop Safari'] }, testIgnore: OTHER_ENGINES_SKIP },
+        ]
+      : []),
   ],
   // The production build, as users get it (SPA fallback from `vite preview`).
   webServer: {

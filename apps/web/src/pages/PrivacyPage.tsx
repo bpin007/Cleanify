@@ -1,9 +1,8 @@
 /**
  * /privacy (PROJECT.md sections 8 and 17): what stays local, what is uploaded, retention.
  *
- * Today only browser mode exists, so the page says exactly what happens now and marks
- * the cloud, translation and account rules (wording from section 17, decision D4) as
- * applying when those features launch.
+ * It describes ONLY what exists today (browser mode). The section 17 rules for
+ * translation, cloud mode and accounts are added here when each of those launches.
  */
 import { useEffect } from 'react';
 import { Link } from 'react-router';
@@ -19,12 +18,12 @@ export function PrivacyPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Privacy</h1>
         <p className="mt-2 text-muted">
-          What stays on your device, what would ever be uploaded, and for how long.
+          What happens to your text and files when you use {APP_NAME}.
         </p>
       </div>
 
       <section className="grid gap-2">
-        <h2 className="text-lg font-semibold">Browser mode (what {APP_NAME} does today)</h2>
+        <h2 className="text-lg font-semibold">Everything runs in your browser</h2>
         <ul className="grid list-disc gap-2 pl-5">
           <li>
             In browser mode, <strong>files never leave the device</strong>. Your text and files are
@@ -43,36 +42,6 @@ export function PrivacyPage() {
             The one thing this site stores is your theme choice (light, dark or system), in this
             browser’s local storage.
           </li>
-        </ul>
-      </section>
-
-      <section className="grid gap-2">
-        <h2 className="text-lg font-semibold">Translation (coming later)</h2>
-        <p className="text-muted">These rules will apply when translation launches:</p>
-        <ul className="grid list-disc gap-2 pl-5">
-          <li>
-            Translation sends <strong>only the text pieces that need translating</strong>, after
-            masking numbers, emails, URLs and IDs, <strong>never the whole file</strong>. In browser
-            mode, everything else stays on the device.
-          </li>
-          <li>
-            Those pieces go to our server and then to a translation provider: Cloudflare (Workers
-            AI), MyMemory, or our own LibreTranslate server hosted on Hugging Face.
-          </li>
-          <li>You’ll be asked before anything is sent.</li>
-        </ul>
-      </section>
-
-      <section className="grid gap-2">
-        <h2 className="text-lg font-semibold">Cloud mode and accounts (coming later)</h2>
-        <p className="text-muted">These rules will apply when cloud mode and accounts launch:</p>
-        <ul className="grid list-disc gap-2 pl-5">
-          <li>Anonymous cloud files are deleted after 1 hour.</li>
-          <li>
-            File contents are never used for anything except processing your own job. They are never
-            logged and never used for training.
-          </li>
-          <li>You can delete your account and all your files at any time.</li>
         </ul>
       </section>
 

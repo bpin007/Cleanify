@@ -2,8 +2,10 @@
 import { expect, test } from '@playwright/test';
 import { cleanFile, cleanText, download } from './helpers';
 
-test('pasted text: clean, review, download and copy', async ({ page, context }) => {
-  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+test('pasted text: clean, review, download and copy', async ({ page, context, browserName }) => {
+  // Only Chromium lets a test grant clipboard permissions and read the clipboard back.
+  const readable = browserName === 'chromium';
+  if (readable) await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await cleanText(page, 'donâ€™t panic, cafÃ© ok');
   await expect(page.getByTestId('summary')).toHaveText('2 encoding fixes');
 
@@ -13,7 +15,8 @@ test('pasted text: clean, review, download and copy', async ({ page, context }) 
 
   await page.getByRole('button', { name: 'Copy' }).click();
   await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('don’t panic, café ok');
+  if (readable)
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('don’t panic, café ok');
 });
 
 test('the ASCII step shows what is still not ASCII, with jump links', async ({ page }) => {

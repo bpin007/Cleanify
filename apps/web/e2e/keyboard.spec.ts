@@ -1,6 +1,10 @@
 /** Everything works with a keyboard only, with a visible focus ring (PROJECT.md section 9). */
 import { expect, test, type Page } from '@playwright/test';
 
+// Safari's Tab skips links by default (Option+Tab includes them), and Playwright's
+// WebKit doesn't emulate Option+Tab, so keyboard paths are checked in Chromium and Firefox.
+test.skip(({ browserName }) => browserName === 'webkit', 'WebKit Tab order differs (see above)');
+
 /** Presses Tab until the focused element matches, like a keyboard user would. */
 async function tabTo(page: Page, matches: (el: Element) => boolean, max = 40) {
   for (let i = 0; i < max; i++) {
