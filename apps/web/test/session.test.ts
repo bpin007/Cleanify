@@ -101,13 +101,6 @@ describe('EngineSession', () => {
     );
     expect(s.outputText()).toBe('Moskva');
   });
-});
-
-describe('lineIndex', () => {
-  it('maps offsets to 1-based lines', () => {
-    const line = lineIndex('a\nbc\n\nd');
-    expect([0, 1, 2, 4, 5, 6].map(line)).toEqual([1, 1, 2, 2, 3, 4]);
-  });
 
   it('saves as Shift-JIS through iconv-lite and blocks characters it lacks', async () => {
     const s = new EngineSession();
@@ -148,5 +141,12 @@ describe('lineIndex', () => {
     const saved = await s.serialize('utf-8', 0);
     expect(saved.ok && String.fromCharCode(...saved.bytes.slice(0, 2))).toBe('PK');
     await expect(s.reanalyze('utf-8', settings(), noop)).rejects.toThrow('Only text and CSV');
+  });
+});
+
+describe('lineIndex', () => {
+  it('maps offsets to 1-based lines', () => {
+    const line = lineIndex('a\nbc\n\nd');
+    expect([0, 1, 2, 4, 5, 6].map(line)).toEqual([1, 1, 2, 2, 3, 4]);
   });
 });

@@ -58,6 +58,8 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       include: ['test/**/*.test.ts'],
+      // Reading real workbooks in the session tests takes about a second; room for slow CI.
+      testTimeout: 20_000,
     },
   };
 });

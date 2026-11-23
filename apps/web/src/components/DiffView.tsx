@@ -61,9 +61,9 @@ function Segment({
       : '',
   ].join(' ');
   return (
+    // No aria-label: <mark> doesn't allow one, and extra hidden text would end up in
+    // copied text. The title names the change; the change list labels each one fully.
     <mark className={cls} title={label} onClick={() => onSelect(id)}>
-      {/* <mark> can't carry aria-label, so screen readers get the kind of change as text. */}
-      <span className="sr-only">{seg.text ? `${label}: ` : `${label}, nothing here`}</span>
       <Text text={seg.text} />
     </mark>
   );
