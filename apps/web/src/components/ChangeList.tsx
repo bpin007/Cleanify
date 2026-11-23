@@ -6,7 +6,7 @@ import type { Change, Stage } from '@cleanify/engine';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown, ChevronRight, Crosshair } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ChangeState, Decision } from '../engine/protocol';
+import type { ChangeState, Decision } from '@cleanify/session';
 import { STAGES, STAGE_ORDER, locationLabel } from '../lib/labels';
 import { showInvisible } from '../lib/markers';
 import { StageIcon } from './StageIcon';

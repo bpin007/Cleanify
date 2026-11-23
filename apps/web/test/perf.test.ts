@@ -3,7 +3,7 @@
  * against accidental quadratic work in the worker session or the row builder.
  */
 import { describe, expect, it } from 'vitest';
-import { EngineSession } from '../src/engine/session';
+import { EngineSession } from '@cleanify/session';
 import { buildRows } from '../src/lib/rows';
 
 const ROWS = 20_000;

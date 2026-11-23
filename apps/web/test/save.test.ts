@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SourceInfo } from '../src/engine/protocol';
+import type { SourceInfo } from '@cleanify/session';
 import { saveOptions } from '../src/lib/save';
 
 const source = (over: Partial<SourceInfo>): SourceInfo => ({

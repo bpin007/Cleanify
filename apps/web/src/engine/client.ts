@@ -2,7 +2,7 @@
  * Talks to the engine Web Worker. Each request gets a job number; replies with
  * another job number (from a cancelled run) are ignored.
  */
-import type { FromWorker, ToWorker } from './protocol';
+import type { FromWorker, ToWorker } from '@cleanify/session';
 
 type Request = ToWorker extends infer T
   ? T extends { job: number }

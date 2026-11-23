@@ -1,4 +1,4 @@
-import type { CleanSettings } from '../engine/protocol';
+import type { CleanSettings } from '@cleanify/session';
 
 export const DEFAULT_SETTINGS: CleanSettings = {
   repair: true,

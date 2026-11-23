@@ -1,5 +1,5 @@
 /** Which files the browser tool accepts (PROJECT.md section 7). */
-import type { InputFormat } from '../engine/protocol';
+import type { InputFormat } from '@cleanify/session';
 
 export const TEXT_EXTENSIONS = ['txt', 'log', 'md', 'json', 'xml', 'sql'];
 export const CSV_EXTENSIONS = ['csv', 'tsv'];

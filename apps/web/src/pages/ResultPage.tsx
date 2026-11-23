@@ -9,7 +9,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { SaveBar } from '../components/SaveBar';
 import { StageIcon } from '../components/StageIcon';
 import { WarningsPanel } from '../components/WarningsPanel';
-import type { SourceInfo } from '../engine/protocol';
+import type { SourceInfo } from '@cleanify/session';
 import { ENCODING_LABELS, STAGES, STAGE_ORDER, formatBytes, plural, summary } from '../lib/labels';
 import { buildRows, rowAtOffset, rowAtOutLine } from '../lib/rows';
 import { useSession } from '../session/SessionContext';

@@ -14,7 +14,7 @@ import type {
   Decision,
   UnencodableItem,
   ViewData,
-} from '../engine/protocol';
+} from '@cleanify/session';
 
 export interface Progress {
   phase: string;

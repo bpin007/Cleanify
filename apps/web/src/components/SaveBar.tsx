@@ -7,7 +7,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import type { EncodingName } from '@cleanify/engine';
 import { Check, Copy, Download } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
-import type { SourceInfo, UnencodableItem } from '../engine/protocol';
+import type { SourceInfo, UnencodableItem } from '@cleanify/session';
 import { cleanedName } from '../lib/files';
 import { ENCODING_LABELS } from '../lib/labels';
 import { saveOptions } from '../lib/save';

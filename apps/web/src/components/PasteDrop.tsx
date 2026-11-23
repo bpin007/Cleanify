@@ -2,7 +2,7 @@
 import { FileText, Upload, X } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
-import type { InputFormat } from '../engine/protocol';
+import type { InputFormat } from '@cleanify/session';
 import { ACCEPT, checkFile } from '../lib/files';
 import { formatBytes } from '../lib/labels';
 

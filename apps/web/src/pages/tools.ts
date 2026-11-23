@@ -2,7 +2,7 @@
  * Single-purpose tool pages (PROJECT.md section 8, site map): the same engine and tool
  * with the switches preset, plus a short explanation for people who arrive from search.
  */
-import type { CleanSettings } from '../engine/protocol';
+import type { CleanSettings } from '@cleanify/session';
 
 export interface ToolSection {
   heading: string;

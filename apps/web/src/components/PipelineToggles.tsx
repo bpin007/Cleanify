@@ -4,7 +4,7 @@ import type { Stage } from '@cleanify/engine';
 import { Cloud, Monitor } from 'lucide-react';
 import { useId } from 'react';
 import type { ReactNode } from 'react';
-import type { CleanSettings } from '../engine/protocol';
+import type { CleanSettings } from '@cleanify/session';
 import { StageIcon } from './StageIcon';
 
 interface ToggleProps {

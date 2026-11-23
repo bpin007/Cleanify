@@ -22,7 +22,11 @@ export default tseslint.config(
 
   // The engine must stay platform-neutral: no DOM, no Node globals (PROJECT.md section 10).
   {
-    files: ['packages/engine/src/**/*.ts', 'packages/shared/src/**/*.ts'],
+    files: [
+      'packages/engine/src/**/*.ts',
+      'packages/session/src/**/*.ts',
+      'packages/shared/src/**/*.ts',
+    ],
     languageOptions: { globals: { ...globals.es2023 } },
     rules: {
       'no-restricted-imports': [

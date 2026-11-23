@@ -242,6 +242,9 @@ importers:
       '@cleanify/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@cleanify/session':
+        specifier: workspace:*
+        version: link:../../packages/session
       '@cleanify/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -334,6 +337,12 @@ importers:
       fast-check:
         specifier: ^4.10.3
         version: 4.10.3
+
+  packages/session:
+    dependencies:
+      '@cleanify/engine':
+        specifier: workspace:*
+        version: link:../engine
 
   packages/shared: {}
 

@@ -1,6 +1,6 @@
 /** Output encodings offered on save (PROJECT.md section 7, decision D1). */
 import type { EncodingName } from '@cleanify/engine';
-import type { SourceInfo } from '../engine/protocol';
+import type { SourceInfo } from '@cleanify/session';
 import { ENCODING_LABELS } from './labels';
 
 export interface Option {
