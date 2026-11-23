@@ -1,7 +1,7 @@
 # Cleanify — Project Plan
 
-> **Status:** Phase 0 approved (merge to `main` pending). Phase 1 (engine) built on `phase-1-engine`, awaiting owner review.
-> **Last updated:** 2026-11-22 (decisions D7–D11 added in Phase 1)
+> **Status:** Phases 0 and 1 merged into `main`. Phase 2 (website, browser mode) complete on `phase-2-web`, in review as a pull request into `main`.
+> **Last updated:** 2026-11-24 (decisions D12–D15 added in Phase 2)
 > **Working name:** Cleanify (kept in one config value so it can be renamed easily)
 
 ---
@@ -240,7 +240,7 @@ Users who are signed in can add **custom rules**, for example `™ → TM`, `° 
 **Encoding on save (decided 2026-11-20):**
 
 - **Default output encoding:** UTF-8 if Stage 1 made any accepted repairs; otherwise the same encoding as the input.
-- Non-UTF-8 output (Windows-1252, ISO-8859-x, Shift-JIS, UTF-16…) is written with **`iconv-lite`**, because browsers and Node can only encode UTF-8 natively. In the browser it is **loaded lazily**, only when a non-UTF-8 save is chosen, if its bundle size is significant (measured in Phase 1/2).
+- Non-UTF-8 output (Windows-1252, ISO-8859-x, Shift-JIS, UTF-16…) is written with **`iconv-lite`**, because browsers and Node can only encode UTF-8 natively. In the browser it is **loaded lazily**, only when a non-UTF-8 save is chosen, if its bundle size is significant (measured in Phase 1/2). **Measured in Phase 2 (D14):** 154 KB gzipped, so it loads only when Shift-JIS is chosen; UTF-8, UTF-16/32 and Windows-1252 are written by the engine itself. ISO-8859-x output is not offered yet (D9: those encodings are not read either).
 - **If some characters won't fit** in the chosen encoding, the save is **blocked**. The user sees a list of those characters with their locations, and a **"Save as UTF-8 instead"** button. Characters are never silently replaced with `?`.
 
 ---
@@ -318,7 +318,7 @@ Everything above, plus:
 **Contrast (to fix in Phase 2).** All four highlight tokens and `--accent` are checked in both themes:
 - Used as **highlight backgrounds** (tinted), the text on them must reach WCAG AA (4.5:1).
 - Any of them used as **coloured text** must reach AA (4.5:1) against `--bg` and `--surface`.
-- Known failures in the light theme on white: `--fix-encoding` `#D97706` (~3.2:1) and `--fix-translate` `#059669` (~3.8:1). These tokens will get darker text variants. The exact values are decided and measured in Phase 2.
+- Known failures in the light theme on white: `--fix-encoding` `#D97706` (~3.2:1) and `--fix-translate` `#059669` (~3.8:1). **Fixed in Phase 2 (decision D12):** every type now has `--fix-X` (icons, underlines: ≥ 3:1), `--fix-X-text` (coloured text: ≥ 4.5:1 on `--bg`, `--surface` and its tint) and `--fix-X-bg` (tint: `--text` on it ≥ 4.5:1), plus a fifth type `--fix-safety` for formula guards. `apps/web/test/contrast.test.ts` measures every pair in both themes.
 
 ### Typography
 
@@ -759,7 +759,7 @@ Errors use standard HTTP codes with `{ "error": { "code": "...", "message": "...
 
 ## 17. Security and privacy
 
-**Privacy promises (shown on `/privacy`):**
+**Privacy promises.** `/privacy` describes **only what exists at the time** (owner decision D15): each promise below is added to the page when its feature launches. Browser mode is the only one live after Phase 2.
 
 - In browser mode, **files never leave the device**.
 - Anonymous cloud files are deleted after 1 hour.
@@ -987,6 +987,10 @@ The cleanup Worker (correction 5) gets its R2 bucket through a Wrangler binding 
 | 2026-11-22 | **D9** Encoding detection: own detector (BOMs, UTF-16 zero pattern, strict UTF-8, Windows-1252 vs Shift-JIS with kana check), no jschardet. Low-confidence guesses are flagged and the user can pick the encoding manually. Other ISO-8859 variants are read as Windows-1252 unless chosen by hand; revisit if real files need more (section 7) |
 | 2026-11-22 | **D10** Engine details decided in Phase 1 (engineer; owner may override): warnings (data lost, hidden text, bidi controls, look-alikes) are reported **whatever the stage toggles are**, since they never change text; emoji are handled as whole sequences (ZWJ, skin tones, flag tags kept intact); ZWJ/ZWNJ inside non-Latin words (Persian, Indic) are kept; look-alike fixes are proposed but not accepted by default; non-UTF-8 output: Windows-1252 and UTF-16/32 are written natively, other encodings through a pluggable encoder (iconv-lite in Phase 2) |
 | 2026-11-22 | **D11** Phase 1 review fixes (owner): (1) the CSV formula guard is an apostrophe **insertion** proposed for every cell that could start with `= + - @` (tab/CR) in the output (as it is, with the default decisions, or with every change accepted); it is inserted only if the cell's **final** value really is a formula risk, and `applyChanges` reports cells that still are one (e.g. guard rejected). (2) Ambiguous Stage 1 pairs, a real capital such as `Ä`/`Å`/`Ç` (not `Ã`/`Â`) followed by punctuation (`Ä…` = Polish `ą` or German `Ä` + `…`), are **medium** confidence and auto-accepted only when the same file has other high-confidence mojibake repairs; repairs to Windows-1252 typographic characters (`Å“` → `œ`) stay high (section 19 #14). (3) When the ASCII stage is on, `applyChanges` returns a report of characters that are still not ASCII with their locations in the output, for the UI's "N characters are still not ASCII" warning (`checkOutput` does the same for any document) |
+| 2026-11-23 | **D12** Colour contrast (section 9): light text variants `--fix-encoding-text` `#92400E` (6.8:1 on `--bg`), `--fix-translate-text` `#065F46`, `--fix-accent-text` `#6D28D9`, `--fix-invisible-text` `#B91C1C`, `--accent-text` `#1D4ED8`; solid tint tokens per type; new `--fix-safety` (cyan) for formula guards. The plan's base colours stay for non-text marks. Highlights also differ by underline style (solid, dotted, dashed, double) so they never rely on colour alone |
+| 2026-11-24 | **D15** Phase 2 review (owner): layout kept (diff left, 24rem change list; stacks under the diff on narrow screens). `/privacy` and the tool pages describe **only what exists today**; translation, cloud and account promises are added when each launches (the Translate tool page's privacy paragraph was removed too). Grid preview after launch (section 23, "Later"). Playwright runs **Chromium on every push**, and **Firefox and WebKit nightly and on pull requests into main** (`e2e-browsers.yml`), on the functional specs only (axe and phone layout stay on Chromium). In Playwright's WebKit the keyboard spec and two "no question on leave" checks are skipped: Safari's Tab skips links, and a close with `runBeforeUnload` never completes without a handler. **Bundle audit** (production build): the home page loads one 308 KB JS file (99.8 KB gzipped) plus 29 KB CSS; the engine worker (65 KB, 24 KB gz) loads on the first Clean; ExcelJS (910 KB, 251 KB gz) only for workbooks; SheetJS (482 KB, 156 KB gz) only for .xls/.ods; mdb-reader (217 KB, 68 KB gz) with the buffer (27 KB) and stream (46 KB) shims only for Access; iconv-lite (267 KB, 149 KB gz) only for a Shift-JIS save; any-ascii (534 KB, 211 KB gz) only for transliteration |
+| 2026-11-23 | **D14** Phase 2 adapters and pages (engineer; owner may override): **workbooks** (.xlsx via ExcelJS 4.4.0; .xls/.ods via SheetJS CE 0.20.3 from the cdn.sheetjs.com tarball with its integrity hash in the lockfile; .accdb/.mdb via mdb-reader 3.2.0) become a `SheetDoc` whose units are **text cells only** (plain strings, rich-text runs keeping each run's font, hyperlink text); merged-away cells, formulas, numbers, dates and booleans are never units; the diff shows one `Sheet!A1 │ value` line per text cell (grid preview deferred, section 24); text that looks like a formula is **not guarded in .xlsx** (Excel never runs a text cell); formulas are recalculated when the file is opened (`fullCalcOnLoad`); charts, pivot tables, slicers/timelines and macros are found in the zip and shown as a high warning plus a note next to Download; .xls/.ods keep values, formulas (namespaces such as `of:=`/`msoxl:=` normalised), number formats, merges and column widths; **Access**: one sheet per table (names made valid and unique, max 31 characters), bold frozen header row, rows in AutoNumber order, currency/decimal as numbers, binary/OLE/attachment columns left out with a warning, password-protected databases refused with a message; in the browser, mdb-reader needs the `buffer`, `stream-browserify` and `events` shims. **iconv-lite** 0.7.3 measured at 154 KB gzipped, loaded only for Shift-JIS saves (offered in the save list now); characters it can't encode block the save like the built-in encoders. **Tool pages** (`/tools/*`) reuse the home tool with preset switches and a short explanation; their before/after examples are unit-tested against the engine; the ASCII step gained a scope "Only invisible characters" for the remove-invisible tool. **beforeunload** asks only when the user changed a decision since cleaning or the last download (an untouched result can be recreated by cleaning again); nothing is stored. **Privacy page** states what browser mode does today and lists the section 17 translation/cloud/account promises as applying when those launch. **End-to-end:** Playwright 1.65.0 + @axe-core/playwright 4.14.0 on the production build (`vite preview`), Chromium only, desktop and Pixel 7; any serious or critical WCAG 2.1 A/AA violation fails the run; a separate CI job runs them. Dependency versions were picked at least about two weeks old where a newer patch had just been released |
+| 2026-11-23 | **D13** Phase 2 UI details (engineer; owner may override at the checkpoint): **React Router 7** (v8 needs React 19, the plan pins React 18); fonts are **self-hosted** via Fontsource, not Google Fonts, so browser mode makes no third-party requests; the Translate switch and Cloud mode are shown **disabled, marked "coming soon"** until Phases 3–4; browser-mode results live at `/result/local`, in memory only (a reload shows "nothing to show"); the engine runs in an ES-module Web Worker so any-ascii stays a lazy chunk; Excel/Access files are refused with a "coming soon" message until their adapters land later in Phase 2; the engine gained `preview()` (marks and edits for the diff) and an `onProgress` hook |
 
 ---
 
@@ -1043,6 +1047,7 @@ The cleanup Worker (correction 5) gets its R2 bucket through a Wrangler binding 
 
 ### Later (version 1.1+)
 - `.docx` support, a browser extension, more output languages, team workspaces, paid plans.
+- **Spreadsheet grid preview** (section 9 component), after launch: a virtualized grid for workbooks instead of the `Sheet!A1 │ value` cell list (D15).
 
 ---
 
@@ -1073,7 +1078,9 @@ The cleanup Worker (correction 5) gets its R2 bucket through a Wrangler binding 
 | **Open:** email provider | — | Pick a card-free one in Phase 3 |
 | **Open:** which languages LibreTranslate loads | — | Decide in Phase 4 based on expected users (more languages = more memory) |
 | **Open:** is Agenda still maintained? | An abandoned job library is a long-term liability | Check before Phase 3. If abandoned, propose a maintained fork or a small Mongo-backed job collection with polling, and **ask the owner before switching** |
-| **Open:** iconv-lite browser bundle size | Could slow the first page load | Measure; lazy-load only when a non-UTF-8 save is chosen if it is significant |
+| ~~Open: iconv-lite browser bundle size~~ | — | Measured: 154 KB gzipped, loaded only when a Shift-JIS save is chosen (D14) |
+| **Known limit (Phase 2):** workbooks are previewed as a list of text cells (`Sheet!A1 │ value`), not as a grid | The section 9 "spreadsheet grid preview" component is not built yet | Owner decision D15: grid preview comes after launch (section 23, "Later"); every change still shows its sheet and cell |
+| **Known limit (Phase 2):** ExcelJS rewrites the whole .xlsx | Parts it doesn't model are lost: charts, pivot tables, slicers, macros (warned about before download), and possibly rarer parts (threaded comments, form controls) that are not detected yet | Detected parts warn with a high-severity notice; add more detections if users report losses |
 | **Open:** Workers AI still offers `m2m100-1.2b`? Daily free allowance? | Provider 1 may be gone or smaller | Check in Phase 0 |
 
 ---

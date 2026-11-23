@@ -4,13 +4,19 @@
  * (when the ASCII stage is on) and CSV cells that could still run as formulas.
  */
 import { csvUnits, isFormulaRisk } from './formats/csv';
+import { sheetUnits } from './formats/sheet';
 import { textUnits } from './formats/text';
 import type { Doc, Location, OutputReport, PipelineOptions, RemainingChar } from './types';
 
 export function checkOutput(doc: Doc, options: PipelineOptions = {}): OutputReport {
   const nonAscii: RemainingChar[] = [];
   if (options.stages?.ascii ?? false) {
-    const units = doc.format === 'text' ? textUnits(doc) : csvUnits(doc);
+    const units =
+      doc.format === 'text'
+        ? textUnits(doc)
+        : doc.format === 'sheet'
+          ? sheetUnits(doc)
+          : csvUnits(doc);
     for (const unit of units) {
       const t = unit.text;
       for (let i = 0; i < t.length; i++) {

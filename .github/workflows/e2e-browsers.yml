@@ -1,0 +1,55 @@
+name: E2E (Firefox, WebKit)
+
+# Chromium runs on every push (ci.yml). Firefox and WebKit run nightly and on pull
+# requests into main (owner decision, Phase 2 review), and can be started by hand.
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-browsers-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    env:
+      TURBO_TELEMETRY_DISABLED: 1
+      E2E_ALL_BROWSERS: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install ${{ matrix.browser }} for Playwright
+        run: pnpm --filter @cleanify/web exec playwright install --with-deps ${{ matrix.browser }}
+
+      - name: End-to-end tests (${{ matrix.browser }})
+        run: pnpm --filter @cleanify/web exec playwright test --project=${{ matrix.browser }}
+
+      - name: Upload the Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: apps/web/test-results/
+          retention-days: 7

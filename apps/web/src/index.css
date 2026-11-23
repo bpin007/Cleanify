@@ -5,6 +5,9 @@
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-accent-text: var(--accent-text);
+  --color-accent-bg: var(--accent-bg);
   --color-border: var(--border);
   --color-text: var(--text);
   --color-muted: var(--muted);
@@ -14,12 +17,24 @@
   --color-fix-accent: var(--fix-accent);
   --color-fix-invisible: var(--fix-invisible);
   --color-fix-translate: var(--fix-translate);
+  --color-fix-safety: var(--fix-safety);
+  --color-fix-encoding-text: var(--fix-encoding-text);
+  --color-fix-accent-text: var(--fix-accent-text);
+  --color-fix-invisible-text: var(--fix-invisible-text);
+  --color-fix-translate-text: var(--fix-translate-text);
+  --color-fix-safety-text: var(--fix-safety-text);
+  --color-fix-encoding-bg: var(--fix-encoding-bg);
+  --color-fix-accent-bg: var(--fix-accent-bg);
+  --color-fix-invisible-bg: var(--fix-invisible-bg);
+  --color-fix-translate-bg: var(--fix-translate-bg);
+  --color-fix-safety-bg: var(--fix-safety-bg);
 
   --font-sans:
-    Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
+    'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
   --font-mono:
-    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
+    'Liberation Mono', monospace;
 }
 
 html,
@@ -44,4 +59,56 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/*
+ * Change highlights (section 9). Each type has its own tint AND its own underline
+ * style, so they never rely on colour alone; labels and icons repeat the type.
+ */
+.hl {
+  border-radius: 2px;
+  color: var(--text);
+  cursor: pointer;
+}
+.hl-encoding {
+  background: var(--fix-encoding-bg);
+  border-bottom: 2px solid var(--fix-encoding);
+}
+.hl-ascii {
+  background: var(--fix-accent-bg);
+  border-bottom: 2px dotted var(--fix-accent);
+}
+.hl-invisible {
+  background: var(--fix-invisible-bg);
+  border-bottom: 2px dashed var(--fix-invisible);
+}
+.hl-translate {
+  background: var(--fix-translate-bg);
+  border-bottom: 3px double var(--fix-translate);
+}
+.hl-safety {
+  background: var(--fix-safety-bg);
+  border-bottom: 2px solid var(--fix-safety);
+}
+/* A change the user rejected: outlined only, no tint. */
+.hl-off {
+  background: transparent;
+  border-bottom: 1px dashed var(--muted);
+}
+/* Insertion point (e.g. the formula guard's apostrophe) or a removed character. */
+.hl-point::before {
+  content: '‸';
+  color: var(--muted);
+}
+.hl-flash {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.ws-marker {
+  /* Body text colour: markers also sit inside tinted highlights, where muted text fails AA. */
+  color: var(--text);
+  background: var(--surface-2);
+  border-radius: 3px;
+  font-size: 0.75em;
+  padding: 0 1px;
 }

@@ -269,16 +269,39 @@ function groupByUnit(changes: readonly Change[]): Map<string, Change[]> {
  * formula risk (so rejecting the change that made it one also drops the apostrophe).
  */
 export function applyCsv(doc: CsvDoc, changes: readonly Change[]): CsvDoc {
+  const edited = editedCells(doc, changes);
+  if (edited.length === 0) return doc;
+  let out = '';
+  let pos = 0;
+  for (const e of edited) {
+    out += doc.source.slice(pos, e.cell.start) + e.raw;
+    pos = e.cell.end;
+  }
+  out += doc.source.slice(pos);
+  return parseCsv(out, { delimiter: doc.delimiter, hasHeader: doc.hasHeader });
+}
+
+/** A cell whose value changes, with its new raw text (quoted as the splice writer writes it). */
+export interface EditedCell {
+  cell: CsvCell;
+  value: string;
+  raw: string;
+  /** Applied changes in this cell (including nested ones). */
+  applied: Change[];
+}
+
+/** Every cell whose value changes once the applied changes are written, in source order. */
+export function editedCells(doc: CsvDoc, changes: readonly Change[]): EditedCell[] {
   const groups = groupByUnit(changes);
   const byId = indexById(changes);
   const memo = new Map<string, boolean>();
-  let out = '';
-  let pos = 0;
+  const out: EditedCell[] = [];
   for (const cell of doc.cells) {
     const id = cellUnitId(cell.row, cell.column);
     const list = groups.get(id);
     if (!list) continue;
-    const guarded = list.some((c) => c.kind === GUARD && isApplied(c, byId, memo));
+    const applied = list.filter((c) => isApplied(c, byId, memo));
+    const guarded = applied.some((c) => c.kind === GUARD);
     let value = applyToUnit(
       id,
       cell.value,
@@ -287,10 +310,40 @@ export function applyCsv(doc: CsvDoc, changes: readonly Change[]): CsvDoc {
     if (guarded && isFormulaRisk(value)) value = `'${value}`;
     if (value === cell.value) continue;
     const raw = cell.quoted || needsQuotes(value, doc.delimiter) ? quote(value) : value;
-    out += doc.source.slice(pos, cell.start) + raw;
-    pos = cell.end;
+    out.push({ cell, value, raw, applied });
   }
-  if (pos === 0 && out === '') return doc;
-  out += doc.source.slice(pos);
-  return parseCsv(out, { delimiter: doc.delimiter, hasHeader: doc.hasHeader });
+  return out;
+}
+
+/**
+ * Source offset of a UTF-16 offset in a cell's unescaped value (skips quotes and `""`
+ * escapes). A range `start` lands after a closing quote; a range `end` lands before it.
+ */
+export function valueOffsetToSource(
+  source: string,
+  cell: CsvCell,
+  offset: number,
+  edge: 'start' | 'end' = 'start',
+): number {
+  if (!cell.quoted) return cell.start + offset;
+  let i = cell.start + 1;
+  let v = 0;
+  let closed = false;
+  while (v < offset && i < cell.end) {
+    if (!closed && source.charCodeAt(i) === 0x22) {
+      if (source.charCodeAt(i + 1) === 0x22) {
+        i += 2;
+        v++;
+      } else {
+        i++; // the closing quote is not part of the value
+        closed = true;
+      }
+      continue;
+    }
+    i++;
+    v++;
+  }
+  const atClosingQuote =
+    !closed && i < cell.end && source.charCodeAt(i) === 0x22 && source.charCodeAt(i + 1) !== 0x22;
+  return atClosingQuote && edge === 'start' && i + 1 < cell.end ? i + 1 : i;
 }

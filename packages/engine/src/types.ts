@@ -49,7 +49,12 @@ export type WarningKind =
   | 'mixed-script' // look-alike letters, e.g. Cyrillic а in "pаypal" (#10)
   | 'unterminated-quote' // CSV quote never closed (#17)
   | 'low-confidence-encoding' // encoding guess is uncertain (#18)
-  | 'whole-file-mojibake'; // most of the file looks garbled
+  | 'whole-file-mojibake' // most of the file looks garbled
+  | 'export-drops-parts' // .xlsx parts ExcelJS can't write back (charts, pivot tables…)
+  | 'styles-not-kept' // .xls/.ods read with SheetJS: values and formulas only
+  | 'converted' // the output is a different format (.xls/.ods/Access → .xlsx)
+  | 'skipped-data' // data that can't be exported (Access binary columns…)
+  | 'text-cells-only'; // only text cells are shown and changed
 
 export interface EngineWarning {
   kind: WarningKind;
@@ -112,7 +117,34 @@ export interface CsvDoc {
   warnings: EngineWarning[];
 }
 
-export type Doc = TextDoc | CsvDoc;
+/** Where a workbook came from. Every one is written back as .xlsx. */
+export type SheetSource = 'xlsx' | 'xls' | 'ods' | 'accdb' | 'mdb';
+
+/** One text cell of a workbook (numbers, dates, formulas and booleans are never units). */
+export interface SheetCell {
+  sheet: string;
+  /** 0-based position of the sheet in `SheetDoc.sheets`. */
+  sheetIndex: number;
+  /** A1-style address, e.g. "B3". */
+  address: string;
+  /** 'rich' = rich text (several runs with their own fonts); 'link' = a hyperlink's text. */
+  kind: 'string' | 'rich' | 'link';
+  value: string;
+  /** Rich text only: the text of each run, in order (they join to `value`). */
+  runs?: string[];
+}
+
+export interface SheetDoc {
+  format: 'sheet';
+  source: SheetSource;
+  sheets: string[];
+  cells: SheetCell[];
+  warnings: EngineWarning[];
+  /** The loaded workbook, kept so writing keeps everything that isn't a text cell. Opaque. */
+  book: unknown;
+}
+
+export type Doc = TextDoc | CsvDoc | SheetDoc;
 
 export interface AsciiOptions {
   /** « » → `<< >>` ('angle', default) or `"` ('quote'). */
