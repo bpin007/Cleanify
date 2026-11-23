@@ -3,6 +3,7 @@
  */
 import { encodeText } from './charsets/encode';
 import { applyCsv, csvUnits, formulaGuards } from './formats/csv';
+import { applySheet, renderSheet, sheetUnits } from './formats/sheet';
 import { applyText, textUnits } from './formats/text';
 import { analyzeUnits } from './pipeline/analyze';
 import { checkOutput } from './report';
@@ -33,10 +34,13 @@ export { detectEncoding } from './decode/detect';
 export { decode } from './decode/decode';
 export { encodeText, UnencodableError } from './charsets/encode';
 export type { ExternalEncoder, UnencodableChar } from './charsets/encode';
+export { loadIconvEncoder } from './charsets/iconv';
 export { parseText } from './formats/text';
 export { parseCsv, detectDelimiter } from './formats/csv';
 export type { CsvOptions } from './formats/csv';
 export { checkOutput } from './report';
+export { cellRef, renderSheet } from './formats/sheet';
+export { ensureBuffer, readWorkbook, sheetSourceOf, writeWorkbook } from './formats/workbook';
 export { preview } from './preview';
 export type { Preview, PreviewEdit, PreviewMark } from './preview';
 
@@ -62,6 +66,10 @@ export function analyze(
   hooks: AnalyzeHooks = {},
 ): AnalysisResult {
   if (doc.format === 'text') return analyzeUnits(textUnits(doc), options, hooks.onProgress);
+  if (doc.format === 'sheet') {
+    const r = analyzeUnits(sheetUnits(doc), options, hooks.onProgress);
+    return { changes: r.changes, warnings: [...doc.warnings, ...r.warnings] };
+  }
   const result = analyzeUnits(csvUnits(doc), options, hooks.onProgress);
   const guards = (options.safety?.formulaGuard ?? true) ? formulaGuards(doc, result.changes) : [];
   return {
@@ -80,17 +88,24 @@ export function applyChanges(
   changes: readonly Change[],
   options: PipelineOptions = {},
 ): AppliedDoc {
-  const out = doc.format === 'text' ? applyText(doc, changes) : applyCsv(doc, changes);
+  const out =
+    doc.format === 'text'
+      ? applyText(doc, changes)
+      : doc.format === 'sheet'
+        ? applySheet(doc, changes)
+        : applyCsv(doc, changes);
   return { ...out, report: checkOutput(out, options) };
 }
 
-/** The document's text (CSV: the full file text). */
+/** The document's text (CSV: the full file text; workbook: one `Sheet!A1 │ value` line per text cell). */
 export function render(doc: Doc): string {
+  if (doc.format === 'sheet') return renderSheet(doc).text;
   return doc.format === 'text' ? doc.text : doc.source;
 }
 
 /** Encodes the document to bytes, with the requested encoding and BOMs (default UTF-8, no BOM). */
 export function serialize(doc: Doc, options: SerializeOptions = {}): Uint8Array {
+  if (doc.format === 'sheet') throw new Error('Workbooks are saved with writeWorkbook()');
   return encodeText(
     render(doc),
     options.encoding ?? 'utf-8',

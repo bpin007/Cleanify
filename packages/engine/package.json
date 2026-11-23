@@ -14,7 +14,12 @@
   },
   "dependencies": {
     "any-ascii": "0.3.3",
-    "papaparse": "^5.7.1"
+    "buffer": "6.0.3",
+    "exceljs": "4.4.0",
+    "iconv-lite": "0.7.3",
+    "mdb-reader": "3.2.0",
+    "papaparse": "^5.7.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@types/papaparse": "^5.5.2",

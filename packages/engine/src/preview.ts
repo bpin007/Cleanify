@@ -10,6 +10,7 @@
 import { appliedEdits } from './changes/apply';
 import { indexById, isApplied } from './changes/model';
 import { cellUnitId, editedCells, valueOffsetToSource } from './formats/csv';
+import { editedSheetCells, renderSheet, sheetUnitId } from './formats/sheet';
 import { TEXT_UNIT } from './formats/text';
 import type { Change, CsvCell, Doc, Stage } from './types';
 
@@ -79,6 +80,33 @@ export function preview(doc: Doc, changes: readonly Change[]): Preview {
         text: e.output,
         ids: [e.change.id, ...nested(e.change.id)],
         stage: e.change.stage,
+      });
+    }
+  } else if (doc.format === 'sheet') {
+    const { valueStarts } = renderSheet(doc);
+    const startOf = new Map<string, number>();
+    doc.cells.forEach((cell, i) => startOf.set(sheetUnitId(cell), valueStarts[i]!));
+    for (const c of changes) {
+      if (c.anchor.kind !== 'original') continue;
+      const base = startOf.get(c.anchor.unit);
+      if (base === undefined) continue;
+      marks.push({
+        start: base + c.anchor.start,
+        end: base + c.anchor.end,
+        id: c.id,
+        stage: c.stage,
+        applied: applied(c),
+      });
+    }
+    for (const e of editedSheetCells(doc, changes)) {
+      const start = valueStarts[e.index]!;
+      const top = e.applied.find((c) => c.anchor.kind === 'original') ?? e.applied[0]!;
+      edits.push({
+        start,
+        end: start + e.cell.value.length,
+        text: e.next.value,
+        ids: e.applied.map((c) => c.id),
+        stage: top.stage,
       });
     }
   } else {

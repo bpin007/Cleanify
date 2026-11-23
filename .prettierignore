@@ -7,3 +7,5 @@ pnpm-lock.yaml
 packages/engine/test/fixtures
 # The plan is hand-formatted (wide tables, box diagrams)
 PROJECT.md
+# E2E fixtures are real files used byte for byte
+apps/web/e2e/fixtures
