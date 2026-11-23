@@ -1,0 +1,22 @@
+# Cleanup Cron Trigger Worker (PROJECT.md section 14, correction 5).
+# Deploy: pnpm --filter @cleanify/cleanup-worker deploy  (after `wrangler login`)
+name = "cleanify-cleanup"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+[triggers]
+crons = ["*/10 * * * *"]
+
+# R2 buckets by binding: the Worker needs no access keys.
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "cleanify-uploads"
+
+[[r2_buckets]]
+binding = "OUTPUTS"
+bucket_name = "cleanify-outputs"
+
+# Must match ANON_RETENTION_MINUTES / API_RETENTION_HOURS in the API's environment.
+[vars]
+ANON_RETENTION_MINUTES = "60"
+API_RETENTION_HOURS = "24"
