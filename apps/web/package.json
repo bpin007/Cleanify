@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json && tsc -p e2e/tsconfig.json",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:cloud": "playwright test -c playwright.cloud.config.ts"
   },
   "dependencies": {
     "@cleanify/engine": "workspace:*",

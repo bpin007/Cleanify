@@ -81,3 +81,13 @@ test('a reload after cleaning shows "Nothing to show" (results live only in the 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Nothing to show' })).toBeVisible();
 });
+
+test('the mode selector switches to cloud mode and remembers it', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Browser mode: your text is processed on this device')).toBeVisible();
+  await page.getByText('Cloud', { exact: true }).click();
+  await expect(page.getByRole('radio', { name: /^Cloud/ })).toBeChecked();
+  await expect(page.getByText('Cloud mode: your text is uploaded over HTTPS')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('radio', { name: /^Cloud/ })).toBeChecked();
+});

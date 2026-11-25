@@ -35,6 +35,10 @@ for (const theme of ['light', 'dark'] as const) {
       '/tools/excel-cleaner',
       '/no-such-page',
       '/result/local',
+      '/login',
+      '/signup',
+      '/forgot-password',
+      '/reset-password?token=0123456789abcdef',
     ];
     for (const path of pages) {
       test(`${path}`, async ({ page }) => {
