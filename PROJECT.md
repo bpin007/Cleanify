@@ -118,26 +118,28 @@ Cleanify is for all purposes. The wording on the site stays plain so anyone can 
 Input text / file
       │
       ▼
-┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────────┐
-│ Stage 1              │   │ Stage 3 (optional)   │   │ Stage 2                  │
-│ Repair garbled text  │──▶│ Translate to English │──▶│ Accents → plain ASCII    │
-│ (mojibake)           │   │                      │   │ + invisible char cleanup │
-│ ON by default        │   │ toggle (cloud only)  │   │ toggle                   │
-│ runs in browser      │   │ runs on server       │   │ runs in browser          │
-└──────────────────────┘   └──────────────────────┘   └──────────────────────────┘
+┌─────────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐   ┌──────────────────────────┐
+│ Stage 1             │   │ Stage 3 (optional)  │   │ Your rules          │   │ Stage 2                  │
+│ Repair garbled text │──▶│ Translate to        │──▶│ (if any)            │──▶│ Accents → plain ASCII    │
+│ (mojibake)          │   │ English             │   │ replace / keep      │   │ + invisible char cleanup │
+│ ON by default       │   │ toggle (cloud only) │   │ saved, or this tab  │   │ toggle                   │
+│ runs in browser     │   │ runs on server      │   │ both modes          │   │ runs in browser          │
+└─────────────────────┘   └─────────────────────┘   └─────────────────────┘   └──────────────────────────┘
       │
       ▼
 Preview (before/after diff) → accept / reject changes → download / copy
 ```
 
-**Run order: Stage 1 → Stage 3 → Stage 2.** The stage numbers are names, not the run order (they match the order of the toggles in the UI).
+**Run order: Stage 1 → Stage 3 (translate, if on) → user rules → Stage 2.** The stage numbers are names, not the run order (they match the order of the toggles in the UI).
 
 The order matters:
 - Garbled text must be repaired before accents are removed. Otherwise `CafÃ©` would become `CafA` instead of `Cafe`.
 - Translation runs on the repaired text, so the translator never sees mojibake.
+- The user's rules run on the repaired (and translated) text, so a rule like `Café → Coffee` matches even when the file had `CafÃ©`.
+- Rules run before Stage 2, so the user's choice wins: with a rule `™ → TM`, the output is `TM`, not Stage 2's `(TM)`.
 - Stage 2 runs last, on the English output when translation is on, or on the repaired text when it is off. This way the translator gets the real accented words (`Café`, not `Cafe`), which it translates better.
 
-When Stage 3 is off, the pipeline is simply Stage 1 → Stage 2.
+When Stage 3 is off and there are no rules, the pipeline is simply Stage 1 → Stage 2.
 
 ### Stage 1 — Repair garbled text (mojibake)
 
@@ -177,7 +179,25 @@ When Stage 3 is off, the pipeline is simply Stage 1 → Stage 2.
 
 **How it works:** Unicode normalization (NFD) strips the combining accent marks. Explicit tables handle letters that don't decompose (ß, Æ, Ø, ł…) and punctuation. A transliteration library handles non-Latin scripts.
 
-Users who are signed in can add **custom rules**, for example `™ → TM`, `° → " degrees"`, or "keep `é` in this project".
+Users can add **custom rules**, for example `™ → TM`, `° → " degrees"`, or "keep `é`" (see [Custom rules](#custom-rules) below).
+
+### Custom rules
+
+Two kinds of rule:
+
+| Kind | What it does | Example |
+|---|---|---|
+| **Replace** | `from → to`, plain text, exact and case-sensitive. **No regular expressions in v1.** `to` may be empty (remove). | `™ → TM`, `ACME Inc → ACME` |
+| **Keep** | Text that Stage 2 must leave alone. Replace rules still apply to it. | keep `é`, keep `Müller` |
+
+- **Where they apply:** both modes. Signed-in users' saved rules are loaded by the API for cloud jobs (a job keeps the rules it started with) and fetched by the web app for browser mode, which passes them to the worker. Anonymous users can add **session-only** rules that last until the tab closes (section 6); they are sent with a cloud job.
+- **Order:** replace rules apply in the user's order. Every rule matches the text as it was before any rule ran, so a rule never acts on another rule's output, and where two matches overlap the earlier rule wins.
+- **Changes like any other:** each match is one change (stage `rule`, reason = the rule's name) in the preview and the change list, with Accept/Reject per item and per group.
+  - A match inside a Stage 1 repair is anchored in the repair (`inParent`) and depends on it.
+  - A match that spans a repair and the text around it (`CafÃ©` repaired to `Café`, rule `Café → Coffee`) is one change over all of it, depending on every repair it covers. Rejecting the repair rejects the rule change with it.
+  - An applied rule change takes precedence over the Stage 2 changes it overlaps. Rejecting it brings Stage 2's change back (`™` → `(TM)`). Stage 2 never changes what a rule wrote.
+- **Keep rules** also stop kept text from being listed as "still not ASCII".
+- Rules are cell-by-cell for CSV and Excel: a rule never matches across two cells.
 
 ### Stage 3 — Translate to English
 
@@ -290,7 +310,7 @@ Everything above, plus:
 
 - **Save to my files** on the result page.
 - Jobs appear in history.
-- The user's own rules are applied automatically.
+- The user's own rules are applied automatically, in both modes (section 5).
 
 ---
 
@@ -628,7 +648,8 @@ Job         { _id, ownerId?, anonSessionId?, apiKeyId?, status: 'queued'|'runnin
 
 SavedFile   { _id, ownerId, jobId, name, r2Key, size, format, createdAt }
 
-Rule        { _id, ownerId, name, from, to, isRegex: false, enabled, order, createdAt }
+Rule        { _id, ownerId, kind: 'replace'|'keep', name, from, to, isRegex: false, enabled, order, createdAt }
+              // keep: `from` is the kept text and `to` is ''
 
 ApiKey      { _id, ownerId, name, prefix, hash, lastUsedAt, revokedAt?, createdAt }
               // only a hash is stored; the full key is shown once at creation
@@ -988,6 +1009,7 @@ The cleanup Worker (correction 5) gets its R2 bucket through a Wrangler binding 
 | 2026-11-22 | **D10** Engine details decided in Phase 1 (engineer; owner may override): warnings (data lost, hidden text, bidi controls, look-alikes) are reported **whatever the stage toggles are**, since they never change text; emoji are handled as whole sequences (ZWJ, skin tones, flag tags kept intact); ZWJ/ZWNJ inside non-Latin words (Persian, Indic) are kept; look-alike fixes are proposed but not accepted by default; non-UTF-8 output: Windows-1252 and UTF-16/32 are written natively, other encodings through a pluggable encoder (iconv-lite in Phase 2) |
 | 2026-11-22 | **D11** Phase 1 review fixes (owner): (1) the CSV formula guard is an apostrophe **insertion** proposed for every cell that could start with `= + - @` (tab/CR) in the output (as it is, with the default decisions, or with every change accepted); it is inserted only if the cell's **final** value really is a formula risk, and `applyChanges` reports cells that still are one (e.g. guard rejected). (2) Ambiguous Stage 1 pairs, a real capital such as `Ä`/`Å`/`Ç` (not `Ã`/`Â`) followed by punctuation (`Ä…` = Polish `ą` or German `Ä` + `…`), are **medium** confidence and auto-accepted only when the same file has other high-confidence mojibake repairs; repairs to Windows-1252 typographic characters (`Å“` → `œ`) stay high (section 19 #14). (3) When the ASCII stage is on, `applyChanges` returns a report of characters that are still not ASCII with their locations in the output, for the UI's "N characters are still not ASCII" warning (`checkOutput` does the same for any document) |
 | 2026-11-23 | **D12** Colour contrast (section 9): light text variants `--fix-encoding-text` `#92400E` (6.8:1 on `--bg`), `--fix-translate-text` `#065F46`, `--fix-accent-text` `#6D28D9`, `--fix-invisible-text` `#B91C1C`, `--accent-text` `#1D4ED8`; solid tint tokens per type; new `--fix-safety` (cyan) for formula guards. The plan's base colours stay for non-text marks. Highlights also differ by underline style (solid, dotted, dashed, double) so they never rely on colour alone |
+| 2026-11-26 | **D16** Custom rules (owner): run order **Stage 1 → Stage 3 → user rules → Stage 2**; two kinds, **replace** (plain text, no regex in v1) and **keep** (text Stage 2 leaves alone); rule matches are changes (stage `rule`, reason = rule name) with `dependsOn` on the Stage 1 repairs they act on; an applied rule takes precedence over the Stage 2 changes it overlaps, and rejecting it brings them back; rules apply in **both modes** for signed-in users (the API loads them for cloud jobs and snapshots them on the job; the web app fetches them for browser mode); anonymous users get session-only rules (this tab, sent with a cloud job). Engineer details: every rule matches the pre-rule text (no chaining), overlapping matches go to the earlier rule; a match across a repair boundary becomes one change over the whole repair(s); `PATCH /api/rules/:id` no longer applies schema defaults (it used to re-enable a disabled rule on reorder) |
 | 2026-11-24 | **D15** Phase 2 review (owner): layout kept (diff left, 24rem change list; stacks under the diff on narrow screens). `/privacy` and the tool pages describe **only what exists today**; translation, cloud and account promises are added when each launches (the Translate tool page's privacy paragraph was removed too). Grid preview after launch (section 23, "Later"). Playwright runs **Chromium on every push**, and **Firefox and WebKit nightly and on pull requests into main** (`e2e-browsers.yml`), on the functional specs only (axe and phone layout stay on Chromium). In Playwright's WebKit the keyboard spec and two "no question on leave" checks are skipped: Safari's Tab skips links, and a close with `runBeforeUnload` never completes without a handler. **Bundle audit** (production build): the home page loads one 308 KB JS file (99.8 KB gzipped) plus 29 KB CSS; the engine worker (65 KB, 24 KB gz) loads on the first Clean; ExcelJS (910 KB, 251 KB gz) only for workbooks; SheetJS (482 KB, 156 KB gz) only for .xls/.ods; mdb-reader (217 KB, 68 KB gz) with the buffer (27 KB) and stream (46 KB) shims only for Access; iconv-lite (267 KB, 149 KB gz) only for a Shift-JIS save; any-ascii (534 KB, 211 KB gz) only for transliteration |
 | 2026-11-23 | **D14** Phase 2 adapters and pages (engineer; owner may override): **workbooks** (.xlsx via ExcelJS 4.4.0; .xls/.ods via SheetJS CE 0.20.3 from the cdn.sheetjs.com tarball with its integrity hash in the lockfile; .accdb/.mdb via mdb-reader 3.2.0) become a `SheetDoc` whose units are **text cells only** (plain strings, rich-text runs keeping each run's font, hyperlink text); merged-away cells, formulas, numbers, dates and booleans are never units; the diff shows one `Sheet!A1 │ value` line per text cell (grid preview deferred, section 24); text that looks like a formula is **not guarded in .xlsx** (Excel never runs a text cell); formulas are recalculated when the file is opened (`fullCalcOnLoad`); charts, pivot tables, slicers/timelines and macros are found in the zip and shown as a high warning plus a note next to Download; .xls/.ods keep values, formulas (namespaces such as `of:=`/`msoxl:=` normalised), number formats, merges and column widths; **Access**: one sheet per table (names made valid and unique, max 31 characters), bold frozen header row, rows in AutoNumber order, currency/decimal as numbers, binary/OLE/attachment columns left out with a warning, password-protected databases refused with a message; in the browser, mdb-reader needs the `buffer`, `stream-browserify` and `events` shims. **iconv-lite** 0.7.3 measured at 154 KB gzipped, loaded only for Shift-JIS saves (offered in the save list now); characters it can't encode block the save like the built-in encoders. **Tool pages** (`/tools/*`) reuse the home tool with preset switches and a short explanation; their before/after examples are unit-tested against the engine; the ASCII step gained a scope "Only invisible characters" for the remove-invisible tool. **beforeunload** asks only when the user changed a decision since cleaning or the last download (an untouched result can be recreated by cleaning again); nothing is stored. **Privacy page** states what browser mode does today and lists the section 17 translation/cloud/account promises as applying when those launch. **End-to-end:** Playwright 1.65.0 + @axe-core/playwright 4.14.0 on the production build (`vite preview`), Chromium only, desktop and Pixel 7; any serious or critical WCAG 2.1 A/AA violation fails the run; a separate CI job runs them. Dependency versions were picked at least about two weeks old where a newer patch had just been released |
 | 2026-11-23 | **D13** Phase 2 UI details (engineer; owner may override at the checkpoint): **React Router 7** (v8 needs React 19, the plan pins React 18); fonts are **self-hosted** via Fontsource, not Google Fonts, so browser mode makes no third-party requests; the Translate switch and Cloud mode are shown **disabled, marked "coming soon"** until Phases 3–4; browser-mode results live at `/result/local`, in memory only (a reload shows "nothing to show"); the engine runs in an ES-module Web Worker so any-ascii stays a lazy chunk; Excel/Access files are refused with a "coming soon" message until their adapters land later in Phase 2; the engine gained `preview()` (marks and edits for the diff) and an `onProgress` hook |
