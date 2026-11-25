@@ -34,6 +34,7 @@ export interface AuthDeps {
   config: Config;
   email: EmailService;
   google: GoogleClient | null;
+  log?: (msg: string, e?: unknown) => void;
 }
 
 /** Starts a login: a new session (refresh family) and both cookies. */
@@ -110,6 +111,7 @@ export async function sendVerification(deps: AuthDeps, user: Pick<UserDoc, '_id'
 
 export function authRoutes(deps: AuthDeps): Router {
   const { config } = deps;
+  const log = deps.log ?? ((msg: string, e?: unknown) => console.error(msg, e ?? ''));
   const router = Router();
   const strict = limiter('auth', config.env === 'test' ? 1000 : 10);
 
@@ -128,7 +130,8 @@ export function authRoutes(deps: AuthDeps): Router {
       passwordHash: await hashPassword(body.password),
     });
     await startSession(config, res, user._id);
-    await sendVerification(deps, user).catch(() => {});
+    // The account exists either way; the user can ask for the email again.
+    await sendVerification(deps, user).catch((e) => log('[email] verification email failed', e));
     res.status(201).json({ ok: true });
   });
 
@@ -183,11 +186,15 @@ export function authRoutes(deps: AuthDeps): Router {
     const user = await User.findOne({ email: body.email }).lean<UserDoc>();
     if (user) {
       const token = await issueToken(user._id, 'reset', 60 * 60 * 1000);
-      await deps.email.send({
-        to: user.email,
-        subject: `Reset your ${config.appName} password`,
-        text: `Someone asked to reset the password for this email. If it was you, open this link (valid for 1 hour):\n${config.webOrigin}/reset-password?token=${token}\n\nIf it wasn't you, ignore this email.\n`,
-      });
+      // A failure is logged, not returned: an error only for known addresses would
+      // reveal which emails have accounts.
+      await deps.email
+        .send({
+          to: user.email,
+          subject: `Reset your ${config.appName} password`,
+          text: `Someone asked to reset the password for this email. If it was you, open this link (valid for 1 hour):\n${config.webOrigin}/reset-password?token=${token}\n\nIf it wasn't you, ignore this email.\n`,
+        })
+        .catch((e) => log('[email] password reset email failed', e));
     }
     // Same answer either way: never reveal whether an email has an account.
     res.status(202).json({ ok: true });

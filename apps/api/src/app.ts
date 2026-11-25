@@ -72,7 +72,7 @@ export function createApp(deps: AppDeps): Express {
   app.use('/api', healthRouter(config));
   app.use('/api', csrf(config), readUser(config), readAnon(config));
   app.use('/api', limiter('api', config.env === 'test' ? 10_000 : 300));
-  app.use('/api/auth', authRoutes({ config, email: deps.email, google }));
+  app.use('/api/auth', authRoutes({ config, email: deps.email, google, log }));
   app.use('/api', jobRoutes({ config, work, queue, cache }));
   app.use('/api', accountRoutes({ config, work, cache, googleEnabled: google !== null }));
 

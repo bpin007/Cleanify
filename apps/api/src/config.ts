@@ -44,8 +44,12 @@ const envSchema = z.object({
   ANON_RETENTION_MINUTES: num(60),
   API_RETENTION_HOURS: num(24),
 
+  /** Brevo API key (decision D17). */
   EMAIL_API_KEY: optional,
+  /** Sender address, verified in Brevo. */
   EMAIL_FROM: optional,
+  /** Sender name shown to recipients. Default: APP_NAME. */
+  EMAIL_FROM_NAME: optional,
 
   // Limits (section 18)
   ANON_CLOUD_FILE_MB: num(10),
@@ -70,7 +74,7 @@ export interface Config {
   buckets: { uploads: string; outputs: string };
   localStorageDir: string;
   retention: { anonMinutes: number; apiHours: number };
-  email: { apiKey: string; from: string } | null;
+  email: { apiKey: string; from: string; fromName: string } | null;
   limits: {
     anonFileBytes: number;
     userFileBytes: number;
@@ -151,7 +155,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, warn = console.
     buckets: { uploads: e.R2_BUCKET_UPLOADS, outputs: e.R2_BUCKET_OUTPUTS },
     localStorageDir: e.LOCAL_STORAGE_DIR,
     retention: { anonMinutes: e.ANON_RETENTION_MINUTES, apiHours: e.API_RETENTION_HOURS },
-    email: e.EMAIL_API_KEY && e.EMAIL_FROM ? { apiKey: e.EMAIL_API_KEY, from: e.EMAIL_FROM } : null,
+    email:
+      e.EMAIL_API_KEY && e.EMAIL_FROM
+        ? { apiKey: e.EMAIL_API_KEY, from: e.EMAIL_FROM, fromName: e.EMAIL_FROM_NAME ?? e.APP_NAME }
+        : null,
     limits: {
       anonFileBytes: e.ANON_CLOUD_FILE_MB * MB,
       userFileBytes: e.USER_CLOUD_FILE_MB * MB,

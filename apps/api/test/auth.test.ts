@@ -118,6 +118,22 @@ describe('sessions', () => {
 });
 
 describe('password reset and email verification', () => {
+  it('answers the same when the email provider fails, and logs it', async () => {
+    await signedIn(t, 'down@example.com', 'old password here');
+    const send = t.email.send.bind(t.email);
+    t.email.send = async () => {
+      throw new Error('provider down');
+    };
+    try {
+      const a = await t.agent();
+      const known = await a.post('/api/auth/forgot').send({ email: 'down@example.com' });
+      expect(known.status).toBe(202);
+      expect(t.logs.some((l) => l.includes('password reset email failed'))).toBe(true);
+    } finally {
+      t.email.send = send;
+    }
+  });
+
   it('sends a reset link only to existing accounts but answers the same', async () => {
     await signedIn(t, 'reset@example.com', 'old password here');
     const a = await t.agent();
