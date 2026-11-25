@@ -42,6 +42,7 @@ export { checkOutput } from './report';
 export { cellRef, renderSheet } from './formats/sheet';
 export { ensureBuffer, readWorkbook, sheetSourceOf, writeWorkbook } from './formats/workbook';
 export { preview } from './preview';
+export { overriddenBy } from './changes/apply';
 export type { Preview, PreviewEdit, PreviewMark } from './preview';
 
 export interface AnalyzeHooks {

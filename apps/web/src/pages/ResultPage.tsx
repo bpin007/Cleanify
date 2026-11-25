@@ -1,7 +1,8 @@
 /** Result view (PROJECT.md section 8): summary, warnings, before/after, change list, save. */
 import type { Change, EncodingName, Stage } from '@cleanify/engine';
+import type { AnalyzedData, Decision, ViewData } from '@cleanify/session';
 import { ArrowLeft } from 'lucide-react';
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ChangeList } from '../components/ChangeList';
 import { DiffView, type JumpTarget } from '../components/DiffView';
@@ -9,38 +10,37 @@ import { ProgressBar } from '../components/ProgressBar';
 import { SaveBar } from '../components/SaveBar';
 import { StageIcon } from '../components/StageIcon';
 import { WarningsPanel } from '../components/WarningsPanel';
-import type { SourceInfo } from '../engine/protocol';
+import type { SourceInfo } from '@cleanify/session';
+import type { Progress, SaveResult } from '../session/SessionContext';
 import { ENCODING_LABELS, STAGES, STAGE_ORDER, formatBytes, plural, summary } from '../lib/labels';
 import { buildRows, rowAtOffset, rowAtOutLine } from '../lib/rows';
 import { useSession } from '../session/SessionContext';
 
+/** Where a result comes from: the browser worker, or a cloud job on the API. */
+export interface ResultBackend {
+  data: AnalyzedData;
+  view: ViewData;
+  busy: boolean;
+  error: string | null;
+  progress: Progress | null;
+  decide: (d: Decision[]) => void | Promise<void>;
+  save: (encoding: EncodingName, bomCount: number) => Promise<SaveResult>;
+  /** Copy is offered only where the output text is at hand (browser mode). */
+  outputText?: (() => Promise<string>) | undefined;
+  /** Re-reading with another encoding (browser mode). */
+  reanalyze?: ((e: EncodingName) => void) | undefined;
+  cancel?: (() => void) | undefined;
+  /** Extra actions next to Download, e.g. "Save to my files". */
+  actions?: ReactNode;
+  /** A line under the title, e.g. "Cloud job · deleted in 1 hour". */
+  note?: ReactNode;
+}
+
+/** Browser mode: the result lives in this tab's worker. */
 export function ResultPage() {
   const session = useSession();
-  const { data, view } = session;
-  const [jump, setJump] = useState<JumpTarget | null>(null);
-  const [focusId, setFocusId] = useState<string | null>(null);
   useWarnBeforeLeaving(session.unsaved);
-
-  const rows = useMemo(
-    () => (data && view ? buildRows(data.original, view.marks, view.edits) : []),
-    [data, view],
-  );
-  const markStart = useMemo(() => new Map(view?.marks.map((m) => [m.id, m.start]) ?? []), [view]);
-  const byId = useMemo(() => new Map(data?.changes.map((c) => [c.id, c]) ?? []), [data]);
-
-  const jumpToChange = useCallback(
-    (id: string) => {
-      // Nested changes have no mark of their own: use the top-level change they sit in.
-      let c: Change | undefined = byId.get(id);
-      while (c && c.anchor.kind === 'inParent') c = byId.get(c.anchor.parentId);
-      const start = c ? markStart.get(c.id) : undefined;
-      setFocusId(id);
-      if (start !== undefined)
-        setJump({ row: rowAtOffset(rows, start), id: c!.id, nonce: Date.now() });
-    },
-    [byId, markStart, rows],
-  );
-
+  const { data, view } = session;
   if (!data || !view) {
     return (
       <div className="grid gap-3 py-16 text-center">
@@ -56,6 +56,45 @@ export function ResultPage() {
       </div>
     );
   }
+  return (
+    <ResultView
+      backend={{
+        data,
+        view,
+        busy: session.busy,
+        error: session.error,
+        progress: session.progress,
+        decide: session.decide,
+        save: session.save,
+        outputText: session.outputText,
+        reanalyze: (e) => void session.reanalyze(e),
+        cancel: session.cancel,
+      }}
+    />
+  );
+}
+
+export function ResultView({ backend }: { backend: ResultBackend }) {
+  const { data, view } = backend;
+  const [jump, setJump] = useState<JumpTarget | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
+
+  const rows = useMemo(() => buildRows(data.original, view.marks, view.edits), [data, view]);
+  const markStart = useMemo(() => new Map(view.marks.map((m) => [m.id, m.start])), [view]);
+  const byId = useMemo(() => new Map(data.changes.map((c) => [c.id, c])), [data]);
+
+  const jumpToChange = useCallback(
+    (id: string) => {
+      // Nested changes have no mark of their own: use the top-level change they sit in.
+      let c: Change | undefined = byId.get(id);
+      while (c && c.anchor.kind === 'inParent') c = byId.get(c.anchor.parentId);
+      const start = c ? markStart.get(c.id) : undefined;
+      setFocusId(id);
+      if (start !== undefined)
+        setJump({ row: rowAtOffset(rows, start), id: c!.id, nonce: Date.now() });
+    },
+    [byId, markStart, rows],
+  );
 
   const counts: Partial<Record<Stage, number>> = {};
   data.changes.forEach((c, i) => {
@@ -74,7 +113,8 @@ export function ResultPage() {
             <ArrowLeft aria-hidden="true" className="size-4" /> New text
           </Link>
           <h1 className="mt-1 truncate text-xl font-semibold tracking-tight">{data.source.name}</h1>
-          <SourceMeta source={data.source} onPick={(e) => session.reanalyze(e)} />
+          <SourceMeta source={data.source} onPick={backend.reanalyze} />
+          {backend.note}
         </div>
         <SaveBar
           source={data.source}
@@ -84,25 +124,26 @@ export function ResultPage() {
               : undefined
           }
           suggested={data.suggestedEncoding}
-          outputText={session.outputText}
-          save={session.save}
+          outputText={backend.outputText}
+          save={backend.save}
+          actions={backend.actions}
         />
       </div>
 
-      {session.progress && <ProgressBar progress={session.progress} onCancel={session.cancel} />}
-      {session.error && (
+      {backend.progress && <ProgressBar progress={backend.progress} onCancel={backend.cancel} />}
+      {backend.error && (
         <p
           role="alert"
           className="rounded-lg border border-fix-invisible bg-fix-invisible-bg px-4 py-3 text-sm"
         >
-          Something went wrong: {session.error}
+          Something went wrong: {backend.error}
         </p>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3">
         <p className="font-medium" aria-live="polite" data-testid="summary">
           {summary(counts)}
-          {session.busy && <span className="ml-2 text-sm font-normal text-muted">updating…</span>}
+          {backend.busy && <span className="ml-2 text-sm font-normal text-muted">updating…</span>}
         </p>
         {stagesPresent.length > 0 && (
           <ul aria-label="Highlight key" className="flex flex-wrap gap-3 text-xs">
@@ -130,8 +171,8 @@ export function ResultPage() {
           changes={data.changes}
           state={view}
           focusId={focusId}
-          busy={session.busy}
-          onDecide={session.decide}
+          busy={backend.busy}
+          onDecide={(d) => void backend.decide(d)}
           onJump={jumpToChange}
         />
       </div>
@@ -170,7 +211,13 @@ const CONFIDENCE: Record<string, string> = {
   low: 'not sure',
 };
 
-function SourceMeta({ source, onPick }: { source: SourceInfo; onPick: (e: EncodingName) => void }) {
+function SourceMeta({
+  source,
+  onPick,
+}: {
+  source: SourceInfo;
+  onPick?: ((e: EncodingName) => void) | undefined;
+}) {
   const id = useId();
   const isDb = source.sheetSource === 'accdb' || source.sheetSource === 'mdb';
   const parts = [
@@ -186,7 +233,7 @@ function SourceMeta({ source, onPick }: { source: SourceInfo; onPick: (e: Encodi
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
       <span>{parts.join(' · ')}</span>
-      {source.encoding && (
+      {source.encoding && onPick && (
         <span className="flex items-center gap-1.5">
           <label htmlFor={id}>Encoding</label>
           <select

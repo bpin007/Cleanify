@@ -4,8 +4,7 @@
  * main thread (PROJECT.md section 8). Nothing leaves the browser.
  */
 import './node-shims';
-import type { FromWorker, ToWorker } from './protocol';
-import { EngineSession } from './session';
+import { EngineSession, type FromWorker, type ToWorker } from '@cleanify/session';
 
 declare const self: DedicatedWorkerGlobalScope;
 

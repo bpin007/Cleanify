@@ -10,4 +10,6 @@ export default defineConfig({
   sourcemap: true,
   // Workspace packages ship TypeScript source, so bundle them into the output.
   noExternal: [/^@cleanify\//],
+  // The dev-only in-memory MongoDB stays outside the bundle (and out of production).
+  external: ['mongodb-memory-server'],
 });

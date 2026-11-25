@@ -33,7 +33,14 @@ export function contrast(a: string, b: string): number {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
 
-const TYPES = ['fix-encoding', 'fix-accent', 'fix-invisible', 'fix-translate', 'fix-safety'];
+const TYPES = [
+  'fix-encoding',
+  'fix-accent',
+  'fix-invisible',
+  'fix-translate',
+  'fix-rule',
+  'fix-safety',
+];
 
 describe.each([
   ['light', light],

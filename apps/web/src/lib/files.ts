@@ -1,10 +1,9 @@
 /** Which files the browser tool accepts (PROJECT.md section 7). */
-import type { InputFormat } from '../engine/protocol';
+import type { InputFormat } from '@cleanify/session';
 
-export const TEXT_EXTENSIONS = ['txt', 'log', 'md', 'json', 'xml', 'sql'];
-export const CSV_EXTENSIONS = ['csv', 'tsv'];
-/** Workbooks and Access databases: cleaned as text cells, saved as .xlsx. */
-export const SHEET_EXTENSIONS = ['xlsx', 'xls', 'ods', 'accdb', 'mdb'];
+import { CSV_EXTENSIONS, SHEET_EXTENSIONS, TEXT_EXTENSIONS, extensionOf } from '@cleanify/shared';
+
+export { CSV_EXTENSIONS, SHEET_EXTENSIONS, TEXT_EXTENSIONS, extensionOf };
 
 /** Warn above this size in browser mode (section 6). */
 export const LARGE_FILE_BYTES = 50 * 1024 * 1024;
@@ -15,11 +14,6 @@ export const ACCEPT = [...TEXT_EXTENSIONS, ...CSV_EXTENSIONS, ...SHEET_EXTENSION
 
 export type FileCheck =
   { ok: true; format: InputFormat; large: boolean } | { ok: false; reason: string };
-
-export function extensionOf(name: string): string {
-  const dot = name.lastIndexOf('.');
-  return dot < 0 ? '' : name.slice(dot + 1).toLowerCase();
-}
 
 export function checkFile(name: string, size: number): FileCheck {
   const ext = extensionOf(name);

@@ -1,6 +1,6 @@
 /** The tool pages' examples must be what the tool really does. */
 import { describe, expect, it } from 'vitest';
-import { EngineSession } from '../src/engine/session';
+import { EngineSession } from '@cleanify/session';
 import { TOOLS } from '../src/pages/tools';
 import { DEFAULT_SETTINGS } from '../src/session/defaults';
 

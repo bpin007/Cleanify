@@ -6,5 +6,6 @@ export const STAGE_TEXT: Record<Stage, string> = {
   ascii: 'text-fix-accent-text',
   invisible: 'text-fix-invisible-text',
   translate: 'text-fix-translate-text',
+  rule: 'text-fix-rule-text',
   safety: 'text-fix-safety-text',
 };

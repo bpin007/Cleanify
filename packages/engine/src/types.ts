@@ -6,8 +6,11 @@
  * 1-based and counted in code points (section 19 #15).
  */
 
-/** 'safety' = CSV formula-injection guard, shown as proposed changes (decision D8). */
-export type Stage = 'encoding' | 'ascii' | 'invisible' | 'translate' | 'safety';
+/**
+ * 'safety' = CSV formula-injection guard, shown as proposed changes (decision D8).
+ * 'rule' = the user's own replace rules (section 5).
+ */
+export type Stage = 'encoding' | 'ascii' | 'invisible' | 'translate' | 'rule' | 'safety';
 export type Confidence = 'high' | 'medium' | 'low';
 
 /** Machine position (decision D3). */
@@ -157,6 +160,31 @@ export interface AsciiOptions {
   transliterate?: (text: string) => string;
 }
 
+/** A user's replace rule: plain text, exact and case-sensitive (no patterns in v1). */
+export interface ReplaceRule {
+  /** Shown as the change's reason. */
+  name: string;
+  from: string;
+  to: string;
+}
+
+/** A user's keep rule: text Stage 2 must leave as it is, e.g. "keep é". */
+export interface KeepRule {
+  name: string;
+  text: string;
+}
+
+/**
+ * Custom rules (section 5). They run after Stage 1 (and Stage 3) and before Stage 2.
+ * Replace rules are applied in list order: where two overlap, the earlier one wins.
+ * Each rule matches the text as it was before any rule ran, so rules never act on each
+ * other's output, and Stage 2 never changes what a rule wrote.
+ */
+export interface RuleSet {
+  replace?: ReplaceRule[];
+  keep?: KeepRule[];
+}
+
 export interface PipelineOptions {
   stages?: {
     /** Stage 1 — repair mojibake. Default on. */
@@ -165,6 +193,7 @@ export interface PipelineOptions {
     ascii?: boolean;
   };
   ascii?: AsciiOptions;
+  rules?: RuleSet;
   safety?: {
     /** CSV formula-injection guard, proposed as changes (decision D8). Default on. */
     formulaGuard?: boolean;

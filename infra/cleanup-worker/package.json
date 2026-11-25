@@ -1,0 +1,17 @@
+{
+  "name": "@cleanify/cleanup-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cloudflare Cron Trigger Worker: deletes expired anon/ and api/ files from R2 every 10 minutes, even while the API sleeps (correction 5).",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --test-scheduled"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261109.1",
+    "wrangler": "4.159.0"
+  }
+}

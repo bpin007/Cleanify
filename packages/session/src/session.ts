@@ -10,6 +10,7 @@ import {
   detectEncoding,
   indexById,
   isApplied,
+  overriddenBy,
   loadIconvEncoder,
   loadTransliterator,
   parseCsv,
@@ -73,6 +74,7 @@ export class EngineSession {
   /** Options for the output report: no "still not ASCII" list when only invisible characters are cleaned. */
   private reportOptions: PipelineOptions = {};
   private output: AppliedDoc | null = null;
+  private warnings: EngineWarning[] = [];
   private iconv: Promise<ExternalEncoder> | null = null;
 
   async analyze(input: CleanInput, settings: CleanSettings, progress: Progress) {
@@ -155,7 +157,6 @@ export class EngineSession {
     settings: CleanSettings,
     progress: Progress,
   ): Promise<AnalyzedData> {
-    const source = this.source!;
     this.doc = doc;
 
     const ascii = { ...settings.asciiOptions };
@@ -164,6 +165,7 @@ export class EngineSession {
       Object.assign(ascii, { transliterate: await loadTransliterator() });
     }
     this.options = { stages: { encoding: settings.repair, ascii: settings.ascii }, ascii };
+    if (settings.rules) this.options.rules = settings.rules;
     const invisibleOnly = settings.ascii && settings.asciiScope === 'invisible';
     this.reportOptions = invisibleOnly
       ? { ...this.options, stages: { encoding: settings.repair, ascii: false } }
@@ -183,15 +185,22 @@ export class EngineSession {
     this.changes = invisibleOnly
       ? result.changes.filter((c) => c.stage !== 'ascii')
       : result.changes;
+    this.warnings = [...decodeWarnings, ...result.warnings];
     progress('Preparing the preview', 0.92);
-    const view = this.view();
+    const data = this.current();
     progress('Done', 1);
+    return data;
+  }
+
+  /** The whole result as it stands now, decisions included (the API's cloud jobs use it). */
+  current(): AnalyzedData {
+    if (!this.doc || !this.source) throw new Error('Nothing analysed yet');
     return {
-      ...view,
-      source,
+      ...this.view(),
+      source: this.source,
       original: render(this.doc),
       changes: this.changes,
-      warnings: [...decodeWarnings, ...result.warnings],
+      warnings: this.warnings,
       suggestedEncoding: this.suggestedEncoding(),
     };
   }
@@ -221,14 +230,20 @@ export class EngineSession {
   private state(): ChangeState {
     const byId = indexById(this.changes);
     const memo = new Map<string, boolean>();
-    const applied = this.changes.map((c) => isApplied(c, byId, memo));
+    const overridden = overriddenBy(this.changes);
+    const applied = this.changes.map((c) => isApplied(c, byId, memo) && !overridden.has(c.id));
     const acceptable = this.changes.map((c) =>
       (c.dependsOn ?? []).every((pid) => {
         const p = byId.get(pid);
         return p !== undefined && isApplied(p, byId, memo);
       }),
     );
-    return { accepted: this.changes.map((c) => c.accepted), applied, acceptable };
+    return {
+      accepted: this.changes.map((c) => c.accepted),
+      applied,
+      overriddenBy: this.changes.map((c) => overridden.get(c.id) ?? null),
+      acceptable,
+    };
   }
 
   private view(): ViewData {

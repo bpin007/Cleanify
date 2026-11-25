@@ -1,0 +1,17 @@
+{
+  "name": "@cleanify/session",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A cleaning session (analyse, decide, save) on top of @cleanify/engine. Platform-neutral: the browser Web Worker and the API job runner run the same code.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cleanify/engine": "workspace:*"
+  }
+}

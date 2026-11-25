@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import type { HealthResponse } from '@cleanify/shared';
-import type { AppConfig } from '../app.js';
 
-export function healthRouter(config: AppConfig): Router {
+export function healthRouter(config: { appName: string; version: string }): Router {
   const router = Router();
 
   router.get('/health', (_req, res) => {

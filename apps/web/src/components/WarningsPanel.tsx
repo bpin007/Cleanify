@@ -6,7 +6,7 @@ import type { EngineWarning } from '@cleanify/engine';
 import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
-import type { ReportItem } from '../engine/protocol';
+import type { ReportItem } from '@cleanify/session';
 import { locationLabel, plural } from '../lib/labels';
 import { showInvisible } from '../lib/markers';
 

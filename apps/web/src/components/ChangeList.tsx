@@ -6,7 +6,7 @@ import type { Change, Stage } from '@cleanify/engine';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown, ChevronRight, Crosshair } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ChangeState, Decision } from '../engine/protocol';
+import type { ChangeState, Decision } from '@cleanify/session';
 import { STAGES, STAGE_ORDER, locationLabel } from '../lib/labels';
 import { showInvisible } from '../lib/markers';
 import { StageIcon } from './StageIcon';
@@ -50,6 +50,8 @@ export function ChangeList({ changes, state, focusId, busy, onDecide, onJump }: 
     }
     return out;
   }, [changes, state.applied, collapsed]);
+
+  const ruleName = useMemo(() => new Map(changes.map((c) => [c.id, c.reason])), [changes]);
 
   const scroller = useRef<HTMLDivElement>(null);
   // No React Compiler here, so the virtualizer's unmemoizable API is fine.
@@ -124,6 +126,10 @@ export function ChangeList({ changes, state, focusId, busy, onDecide, onJump }: 
                     accepted={state.accepted[item.index]!}
                     applied={state.applied[item.index]!}
                     acceptable={state.acceptable[item.index]!}
+                    overriddenBy={(() => {
+                      const id = state.overriddenBy?.[item.index];
+                      return id ? (ruleName.get(id) ?? 'a rule') : null;
+                    })()}
                     focused={changes[item.index]!.id === focusId}
                     busy={busy}
                     onDecide={onDecide}
@@ -196,6 +202,7 @@ function ChangeRow({
   accepted,
   applied,
   acceptable,
+  overriddenBy,
   focused,
   busy,
   onDecide,
@@ -205,6 +212,8 @@ function ChangeRow({
   accepted: boolean;
   applied: boolean;
   acceptable: boolean;
+  /** The name of the user's rule that replaces this accepted change, if any. */
+  overriddenBy: string | null;
   focused: boolean;
   busy: boolean;
   onDecide: (d: Decision[]) => void;
@@ -246,6 +255,7 @@ function ChangeRow({
         </div>
         <p className="mt-0.5 text-xs text-muted">
           {waiting ? 'Needs the encoding repair it sits in, which is rejected. ' : ''}
+          {overriddenBy ? `Replaced by your rule “${overriddenBy}”. ` : ''}
           {/* Many Stage 2 reasons just repeat "é → e", already shown above. */}
           {c.reason === `${c.from} → ${c.to}` ? '' : c.reason}
         </p>

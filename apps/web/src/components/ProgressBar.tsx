@@ -1,6 +1,15 @@
 import type { Progress } from '../session/SessionContext';
 
-export function ProgressBar({ progress, onCancel }: { progress: Progress; onCancel: () => void }) {
+export function ProgressBar({
+  progress,
+  onCancel,
+  label = 'Cleaning progress',
+}: {
+  progress: Progress;
+  /** Without it there is no Cancel button (cloud jobs keep running on the server). */
+  onCancel?: (() => void) | undefined;
+  label?: string;
+}) {
   const pct = Math.round(progress.fraction * 100);
   return (
     <div className="grid gap-2 rounded-xl border border-border bg-surface p-4" aria-live="polite">
@@ -8,17 +17,19 @@ export function ProgressBar({ progress, onCancel }: { progress: Progress; onCanc
         <span>
           {progress.phase}… <span className="text-muted">{pct}%</span>
         </span>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md px-2 py-1 text-muted hover:bg-surface-2 hover:text-text"
-        >
-          Cancel
-        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md px-2 py-1 text-muted hover:bg-surface-2 hover:text-text"
+          >
+            Cancel
+          </button>
+        )}
       </div>
       <div
         role="progressbar"
-        aria-label="Cleaning progress"
+        aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}

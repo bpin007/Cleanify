@@ -82,3 +82,47 @@ jobs:
           name: playwright-report
           path: apps/web/test-results/
           retention-days: 7
+
+  e2e-cloud:
+    # Cloud mode against a real API (PROJECT.md section 20): anonymous jobs, uploads and
+    # the signed-in flow. The API runs with NODE_ENV=test: a throwaway mongodb-memory-server
+    # database and local-disk storage, no secrets needed. Pull requests into main only, so
+    # pushes keep the faster browser-only e2e job.
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TURBO_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # mongodb-memory-server downloads a mongod binary on first use.
+      - name: Cache the MongoDB binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Chromium for Playwright
+        run: pnpm --filter @cleanify/web exec playwright install --with-deps chromium
+
+      - name: Cloud-mode end-to-end tests
+        run: pnpm --filter @cleanify/web test:e2e:cloud
+
+      - name: Upload the Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-cloud
+          path: apps/web/test-results/
+          retention-days: 7

@@ -16,11 +16,19 @@ export const STAGES: Record<Stage, StageMeta> = {
     noun: ['invisible character', 'invisible characters'],
   },
   translate: { label: 'Translations', noun: ['translation', 'translations'] },
+  rule: { label: 'Rule changes', noun: ['rule change', 'rule changes'] },
   safety: { label: 'Spreadsheet safety', noun: ['formula guard', 'formula guards'] },
 };
 
-/** Order of groups in the UI. */
-export const STAGE_ORDER: Stage[] = ['encoding', 'ascii', 'invisible', 'translate', 'safety'];
+/** Order of groups in the UI: the run order (section 5), the CSV guard last. */
+export const STAGE_ORDER: Stage[] = [
+  'encoding',
+  'translate',
+  'rule',
+  'ascii',
+  'invisible',
+  'safety',
+];
 
 export const plural = (n: number, [one, many]: [string, string]) =>
   `${n.toLocaleString('en')} ${n === 1 ? one : many}`;

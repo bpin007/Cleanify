@@ -2,7 +2,7 @@
  * The cleaning session for this tab: settings, progress, the analysed document and
  * the user's decisions. Everything stays in memory in this tab (browser mode).
  */
-import type { EncodingName } from '@cleanify/engine';
+import type { EncodingName, RuleSet } from '@cleanify/engine';
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CancelledError, EngineClient } from '../engine/client';
@@ -14,7 +14,19 @@ import type {
   Decision,
   UnencodableItem,
   ViewData,
-} from '../engine/protocol';
+} from '@cleanify/session';
+
+export type Mode = 'browser' | 'cloud';
+
+const MODE_KEY = 'cleanify.mode';
+
+function storedMode(): Mode {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'cloud' ? 'cloud' : 'browser';
+  } catch {
+    return 'browser';
+  }
+}
 
 export interface Progress {
   phase: string;
@@ -22,11 +34,17 @@ export interface Progress {
 }
 
 export type SaveResult =
-  { ok: true; bytes: Uint8Array } | { ok: false; encoding: EncodingName; chars: UnencodableItem[] };
+  | { ok: true; bytes: Uint8Array }
+  /** Cloud mode: a signed link to the file built on the server. */
+  | { ok: true; url: string }
+  | { ok: false; encoding: EncodingName; chars: UnencodableItem[] };
 
 interface SessionValue {
   settings: CleanSettings;
   setSettings: (s: CleanSettings) => void;
+  /** Where Clean runs: this device (default) or our server. */
+  mode: Mode;
+  setMode: (m: Mode) => void;
   progress: Progress | null;
   error: string | null;
   data: AnalyzedData | null;
@@ -34,7 +52,8 @@ interface SessionValue {
   busy: boolean;
   /** The user changed decisions since the last download (or since cleaning). */
   unsaved: boolean;
-  clean: (input: CleanInput) => Promise<boolean>;
+  /** Runs with the current settings plus the user's rules (kept for re-reading). */
+  clean: (input: CleanInput, rules?: RuleSet) => Promise<boolean>;
   reanalyze: (encoding: EncodingName) => Promise<boolean>;
   decide: (decisions: Decision[]) => Promise<void>;
   outputText: () => Promise<string>;
@@ -50,6 +69,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const engine = () => (client.current ??= new EngineClient());
 
   const [settings, setSettings] = useState<CleanSettings>(DEFAULT_SETTINGS);
+  const [mode, setModeState] = useState<Mode>(storedMode);
+  const setMode = useCallback((m: Mode) => {
+    setModeState(m);
+    try {
+      localStorage.setItem(MODE_KEY, m);
+    } catch {
+      // Private window or blocked storage: the choice lasts for this tab only.
+    }
+  }, []);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AnalyzedData | null>(null);
@@ -82,14 +110,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // The rules of the last run, so re-reading with another encoding uses the same ones.
+  const lastRules = useRef<RuleSet | undefined>(undefined);
+
   const clean = useCallback(
-    (input: CleanInput) =>
-      run({ type: 'analyze', input, settings }, input.kind === 'file' ? [input.bytes] : []),
+    (input: CleanInput, rules?: RuleSet) => {
+      lastRules.current = rules;
+      return run(
+        { type: 'analyze', input, settings: { ...settings, rules } },
+        input.kind === 'file' ? [input.bytes] : [],
+      );
+    },
     [run, settings],
   );
 
   const reanalyze = useCallback(
-    (encoding: EncodingName) => run({ type: 'reanalyze', encoding, settings }),
+    (encoding: EncodingName) =>
+      run({ type: 'reanalyze', encoding, settings: { ...settings, rules: lastRules.current } }),
     [run, settings],
   );
 
@@ -147,6 +184,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     () => ({
       settings,
       setSettings,
+      mode,
+      setMode,
       progress,
       error,
       data,
@@ -163,6 +202,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }),
     [
       settings,
+      mode,
+      setMode,
       progress,
       error,
       data,

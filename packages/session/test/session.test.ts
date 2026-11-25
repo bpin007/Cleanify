@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { CleanSettings } from '../src/engine/protocol';
-import { EngineSession, lineIndex } from '../src/engine/session';
+import type { CleanSettings } from '../src/protocol';
+import { EngineSession, lineIndex } from '../src/session';
 
 const settings = (over: Partial<CleanSettings> = {}): CleanSettings => ({
   repair: true,
@@ -116,7 +116,9 @@ describe('EngineSession', () => {
 
   it('reads a workbook, points report items at output lines and saves .xlsx', async () => {
     const s = new EngineSession();
-    const file = readFileSync(new URL('../e2e/fixtures/formulas.xlsx', import.meta.url));
+    const file = readFileSync(
+      new URL('../../engine/test/fixtures/office/formulas.xlsx', import.meta.url),
+    );
     const bytes = file.buffer.slice(
       file.byteOffset,
       file.byteOffset + file.byteLength,
