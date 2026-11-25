@@ -16,17 +16,35 @@ import type {
   ViewData,
 } from '@cleanify/session';
 
+export type Mode = 'browser' | 'cloud';
+
+const MODE_KEY = 'cleanify.mode';
+
+function storedMode(): Mode {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'cloud' ? 'cloud' : 'browser';
+  } catch {
+    return 'browser';
+  }
+}
+
 export interface Progress {
   phase: string;
   fraction: number;
 }
 
 export type SaveResult =
-  { ok: true; bytes: Uint8Array } | { ok: false; encoding: EncodingName; chars: UnencodableItem[] };
+  | { ok: true; bytes: Uint8Array }
+  /** Cloud mode: a signed link to the file built on the server. */
+  | { ok: true; url: string }
+  | { ok: false; encoding: EncodingName; chars: UnencodableItem[] };
 
 interface SessionValue {
   settings: CleanSettings;
   setSettings: (s: CleanSettings) => void;
+  /** Where Clean runs: this device (default) or our server. */
+  mode: Mode;
+  setMode: (m: Mode) => void;
   progress: Progress | null;
   error: string | null;
   data: AnalyzedData | null;
@@ -50,6 +68,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const engine = () => (client.current ??= new EngineClient());
 
   const [settings, setSettings] = useState<CleanSettings>(DEFAULT_SETTINGS);
+  const [mode, setModeState] = useState<Mode>(storedMode);
+  const setMode = useCallback((m: Mode) => {
+    setModeState(m);
+    try {
+      localStorage.setItem(MODE_KEY, m);
+    } catch {
+      // Private window or blocked storage: the choice lasts for this tab only.
+    }
+  }, []);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AnalyzedData | null>(null);
@@ -147,6 +174,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     () => ({
       settings,
       setSettings,
+      mode,
+      setMode,
       progress,
       error,
       data,
@@ -163,6 +192,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }),
     [
       settings,
+      mode,
+      setMode,
       progress,
       error,
       data,

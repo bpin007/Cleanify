@@ -6,7 +6,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import type { EncodingName } from '@cleanify/engine';
 import { Check, Copy, Download } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import type { SourceInfo, UnencodableItem } from '@cleanify/session';
 import { cleanedName } from '../lib/files';
 import { ENCODING_LABELS } from '../lib/labels';
@@ -25,16 +25,26 @@ function downloadBytes(bytes: Uint8Array, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function downloadUrl(url: string) {
+  // The signed link answers with Content-Disposition: attachment, so this downloads.
+  const a = document.createElement('a');
+  a.href = url;
+  a.rel = 'noopener';
+  a.click();
+}
+
 interface Props {
   source: SourceInfo;
+  actions?: ReactNode;
   /** Shown next to Download, e.g. "charts and pivot tables will be lost". */
   exportNote?: string | undefined;
   suggested: EncodingName;
-  outputText: () => Promise<string>;
+  outputText?: (() => Promise<string>) | undefined;
   save: (encoding: EncodingName, bomCount: number) => Promise<SaveResult>;
 }
 
-export function SaveBar({ source, exportNote, suggested, outputText, save }: Props) {
+export function SaveBar({ source, exportNote, suggested, outputText, save, actions }: Props) {
+  const [saving, setSaving] = useState(false);
   const isSheet = source.format === 'sheet';
   const options = useMemo(() => saveOptions(source, suggested), [source, suggested]);
   const [key, setKey] = useState(options[0]!.key);
@@ -53,19 +63,24 @@ export function SaveBar({ source, exportNote, suggested, outputText, save }: Pro
 
   const doSave = async (encoding: EncodingName, bomCount: number) => {
     setProblem(null);
+    setSaving(true);
     try {
       const r = await save(encoding, bomCount);
       if (r.ok) {
-        downloadBytes(r.bytes, fileName);
+        if ('url' in r) downloadUrl(r.url);
+        else downloadBytes(r.bytes, fileName);
         setBlocked(null);
       } else setBlocked({ encoding: r.encoding, chars: r.chars });
     } catch (e) {
       setProblem(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
     }
   };
 
   const doCopy = async () => {
     setProblem(null);
+    if (!outputText) return;
     try {
       await navigator.clipboard.writeText(await outputText());
       setCopied(true);
@@ -101,11 +116,12 @@ export function SaveBar({ source, exportNote, suggested, outputText, save }: Pro
       <button
         type="button"
         onClick={() => doSave(choice.encoding, choice.bomCount)}
-        className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:opacity-90"
+        disabled={saving}
+        className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:opacity-90 disabled:opacity-60"
       >
-        <Download aria-hidden="true" className="size-4" /> Download
+        <Download aria-hidden="true" className="size-4" /> {saving ? 'Preparing…' : 'Download'}
       </button>
-      {!isSheet && (
+      {!isSheet && outputText && (
         <button
           type="button"
           onClick={doCopy}
@@ -119,6 +135,7 @@ export function SaveBar({ source, exportNote, suggested, outputText, save }: Pro
           {copied ? 'Copied' : 'Copy'}
         </button>
       )}
+      {actions}
       {exportNote && (
         <p className="w-full text-sm text-fix-invisible-text" data-testid="export-note">
           {exportNote}

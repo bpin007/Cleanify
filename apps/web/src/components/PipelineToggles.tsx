@@ -5,6 +5,7 @@ import { Cloud, Monitor } from 'lucide-react';
 import { useId } from 'react';
 import type { ReactNode } from 'react';
 import type { CleanSettings } from '@cleanify/session';
+import type { Mode } from '../session/SessionContext';
 import { StageIcon } from './StageIcon';
 
 interface ToggleProps {
@@ -89,9 +90,14 @@ function Choice<T extends string>(props: {
 export function PipelineToggles({
   settings,
   onChange,
+  mode,
+  onModeChange,
 }: {
   settings: CleanSettings;
   onChange: (s: CleanSettings) => void;
+  /** Without these there is no mode selector (e.g. default steps in Settings). */
+  mode?: Mode | undefined;
+  onModeChange?: ((m: Mode) => void) | undefined;
 }) {
   const opts = settings.asciiOptions;
   const setOpt = (o: Partial<CleanSettings['asciiOptions']>) =>
@@ -174,33 +180,47 @@ export function PipelineToggles({
         </div>
       )}
 
-      <ModeSelector />
+      {mode && onModeChange && <ModeSelector mode={mode} onChange={onModeChange} />}
     </div>
   );
 }
 
-/** Browser mode only for now; cloud mode arrives with accounts (Phase 3). */
-function ModeSelector() {
+const MODES: { value: Mode; label: string; hint: string; Icon: typeof Monitor }[] = [
+  { value: 'browser', label: 'Browser', hint: 'nothing leaves your device', Icon: Monitor },
+  { value: 'cloud', label: 'Cloud', hint: 'runs on our server', Icon: Cloud },
+];
+
+function ModeSelector({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
   return (
     <fieldset className="flex flex-wrap items-center gap-3 border-t border-border pt-4 text-sm">
       <legend className="sr-only">Where to process</legend>
       <span aria-hidden="true" className="text-muted">
         Process in
       </span>
-      <label className="inline-flex items-center gap-2 rounded-lg border border-accent bg-accent-bg px-3 py-1.5 text-accent-text has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent">
-        <input type="radio" name="mode" value="browser" defaultChecked className="sr-only" />
-        <Monitor aria-hidden="true" className="size-4" />
-        <span>
-          <span className="font-medium">Browser</span> · nothing leaves your device
-        </span>
-      </label>
-      <label className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-muted">
-        <input type="radio" name="mode" value="cloud" disabled className="sr-only" />
-        <Cloud aria-hidden="true" className="size-4" />
-        <span>
-          <span className="font-medium">Cloud</span> · coming soon
-        </span>
-      </label>
+      {MODES.map(({ value, label, hint, Icon }) => (
+        <label
+          key={value}
+          className={
+            'inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent ' +
+            (mode === value
+              ? 'border-accent bg-accent-bg text-accent-text'
+              : 'border-border text-muted hover:text-text')
+          }
+        >
+          <input
+            type="radio"
+            name="mode"
+            value={value}
+            checked={mode === value}
+            onChange={() => onChange(value)}
+            className="sr-only"
+          />
+          <Icon aria-hidden="true" className="size-4" />
+          <span>
+            <span className="font-medium">{label}</span> · {hint}
+          </span>
+        </label>
+      ))}
     </fieldset>
   );
 }
