@@ -5,6 +5,7 @@
  */
 import type {
   AsciiOptions,
+  RuleSet,
   Change,
   Confidence,
   EncodingName,
@@ -32,6 +33,12 @@ export interface CleanSettings {
    */
   asciiScope: 'all' | 'invisible';
   asciiOptions: Pick<AsciiOptions, 'emoji' | 'nonLatin' | 'guillemets'>;
+  /**
+   * The user's own rules (section 5): saved ones for signed-in users (loaded by the
+   * API for cloud jobs, fetched by the web app for browser mode), session-only ones
+   * for anonymous users.
+   */
+  rules?: RuleSet | undefined;
 }
 
 /** A report item with the 1-based line in the output where it sits, for jumping. */
@@ -44,7 +51,10 @@ export interface ReportItem {
 
 export interface ChangeState {
   accepted: boolean[];
+  /** In the output: accepted, parents applied, and not overridden by one of the user's rules. */
   applied: boolean[];
+  /** The id of the user's rule that replaces this accepted change, if any. */
+  overriddenBy: (string | null)[];
   /** False when a parent change is rejected, so this one can't be accepted. */
   acceptable: boolean[];
 }

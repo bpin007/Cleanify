@@ -199,3 +199,76 @@ describe('content check', () => {
     expect(contentMatches('a.txt', new Uint8Array([0xff, 0xfe, 0x41, 0]))).toBe(true);
   });
 });
+
+describe('custom rules in cloud jobs (section 5)', () => {
+  const ASCII = { ...SETTINGS, ascii: true };
+
+  /** Runs a text job to the end and returns the downloaded output and the changes. */
+  async function cleaned(a: Agent, text: string, settings: object) {
+    const { body } = await a.post('/api/jobs').send({ text, settings });
+    expect((await finished(a, body.id)).status).toBe('done');
+    const result = await a.get(`/api/jobs/${body.id}/result`);
+    await a.post(`/api/jobs/${body.id}/apply`).send({ encoding: 'utf-8', bomCount: 0 });
+    await finished(a, body.id);
+    const dl = await a.get(`/api/jobs/${body.id}/download`);
+    const file = await a.get(pathOf(dl.body.url)).buffer(true);
+    return {
+      id: body.id as string,
+      text: file.body.toString('utf8'),
+      changes: result.body.changes as { id: string; stage: string; reason: string }[],
+    };
+  }
+
+  it('applies a signed-in user’s saved, enabled rules in order, and ignores rules in the body', async () => {
+    const a = await signedIn(t, 'rules-jobs@example.com');
+    await a.post('/api/rules').send({ name: 'TM plain', from: '™', to: 'TM' });
+    await a.post('/api/rules').send({ name: 'TM brackets', from: '™', to: '[TM]' });
+    await a.post('/api/rules').send({ kind: 'keep', name: 'keep é', from: 'é' });
+    await a.post('/api/rules').send({ name: 'off', from: 'Acme', to: 'X', enabled: false });
+
+    const r = await cleaned(a, 'Acme™ Café naïve', {
+      ...ASCII,
+      rules: { replace: [{ name: 'sent', from: 'Acme', to: 'Y' }] },
+    });
+    expect(r.text).toBe('AcmeTM Café naive');
+    expect(r.changes.filter((c) => c.stage === 'rule').map((c) => c.reason)).toEqual(['TM plain']);
+  });
+
+  it('a rule change can be rejected like any other change', async () => {
+    const a = await signedIn(t, 'rules-reject@example.com');
+    await a.post('/api/rules').send({ name: 'TM plain', from: '™', to: 'TM' });
+    const { body } = await a.post('/api/jobs').send({ text: 'Acme™', settings: ASCII });
+    await finished(a, body.id);
+    const result = await a.get(`/api/jobs/${body.id}/result`);
+    const rule = result.body.changes.find((c: { stage: string }) => c.stage === 'rule');
+    await a.post(`/api/jobs/${body.id}/decide`).send({
+      decisions: [{ type: 'group', stage: 'rule', accepted: false }],
+    });
+    expect(rule).toBeDefined();
+    await a.post(`/api/jobs/${body.id}/apply`).send({ encoding: 'utf-8', bomCount: 0 });
+    await finished(a, body.id);
+    const dl = await a.get(`/api/jobs/${body.id}/download`);
+    expect((await a.get(pathOf(dl.body.url)).buffer(true)).body.toString('utf8')).toBe('Acme(TM)');
+  });
+
+  it('anonymous users send their session-only rules with the job', async () => {
+    const a = await t.agent();
+    const r = await cleaned(a, 'Acme™ Café', {
+      ...ASCII,
+      rules: {
+        replace: [{ name: 'TM plain', from: '™', to: 'TM' }],
+        keep: [{ name: 'k', text: 'é' }],
+      },
+    });
+    expect(r.text).toBe('AcmeTM Café');
+  });
+
+  it('refuses rule sets that break the limits', async () => {
+    const a = await t.agent();
+    const tooMany = Array.from({ length: 201 }, (_, i) => ({ name: `r${i}`, from: 'a', to: 'b' }));
+    const r = await a
+      .post('/api/jobs')
+      .send({ text: 'x', settings: { ...SETTINGS, rules: { replace: tooMany } } });
+    expect(r.status).toBe(400);
+  });
+});

@@ -57,6 +57,7 @@ export function meUser(u: UserDoc): MeUser {
 function ruleInfo(r: Record<string, unknown>): RuleInfo {
   return {
     id: String(r['_id']),
+    kind: r['kind'] === 'keep' ? 'keep' : 'replace',
     name: String(r['name']),
     from: String(r['from']),
     to: String(r['to'] ?? ''),
@@ -216,12 +217,18 @@ export function accountRoutes({ config, work, cache, googleEnabled }: AccountDep
     const count = await Rule.countDocuments({ ownerId: req.user!._id });
     if (count >= MAX_RULES)
       throw new HttpError(400, 'too_many_rules', `You can have up to ${MAX_RULES} rules`);
-    const r = await Rule.create({ ...body, ownerId: req.user!._id, order: count });
+    const r = await Rule.create({
+      ...body,
+      to: body.kind === 'keep' ? '' : body.to,
+      ownerId: req.user!._id,
+      order: count,
+    });
     res.status(201).json({ rule: ruleInfo(r.toObject() as Record<string, unknown>) });
   });
 
   router.patch('/rules/:id', requireUser, async (req: Request<{ id: string }>, res) => {
     const body = parseBody(updateRuleSchema, req.body);
+    if (body.kind === 'keep') body.to = '';
     const r = await Rule.findOneAndUpdate(
       { _id: req.params.id, ownerId: req.user!._id },
       { $set: body },

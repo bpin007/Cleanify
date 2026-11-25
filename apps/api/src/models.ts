@@ -122,6 +122,8 @@ const ruleSchema = new Schema(
   {
     _id: id,
     ownerId: { type: String, required: true, index: true },
+    /** 'replace': from → to. 'keep': `from` is text the ASCII step leaves alone. */
+    kind: { type: String, enum: ['replace', 'keep'], default: 'replace' },
     name: { type: String, required: true },
     from: { type: String, required: true },
     to: { type: String, default: '' },

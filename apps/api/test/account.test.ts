@@ -118,6 +118,25 @@ describe('rules', () => {
     expect((await b.delete(`/api/rules/${r2.body.rule.id}`)).status).toBe(404);
   });
 
+  it('PATCH changes only the fields it sends (reordering never re-enables a rule)', async () => {
+    const a = await signedIn(t, 'rules-patch@example.com');
+    const r = await a
+      .post('/api/rules')
+      .send({ name: 'Dash', from: '--', to: '-', enabled: false });
+    const moved = await a.patch(`/api/rules/${r.body.rule.id}`).send({ order: 5 });
+    expect(moved.body.rule).toMatchObject({ kind: 'replace', to: '-', enabled: false, order: 5 });
+  });
+
+  it('keep rules store no replacement', async () => {
+    const a = await signedIn(t, 'rules-keep@example.com');
+    const r = await a.post('/api/rules').send({ kind: 'keep', name: 'keep é', from: 'é', to: 'x' });
+    expect(r.status).toBe(201);
+    expect(r.body.rule).toMatchObject({ kind: 'keep', from: 'é', to: '' });
+    expect((await a.post('/api/rules').send({ kind: 'other', name: 'n', from: 'x' })).status).toBe(
+      400,
+    );
+  });
+
   it('validates rules', async () => {
     const a = await signedIn(t, 'rules3@example.com');
     expect((await a.post('/api/rules').send({ name: '', from: 'x', to: 'y' })).status).toBe(400);

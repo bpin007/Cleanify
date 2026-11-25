@@ -10,6 +10,7 @@ import {
   detectEncoding,
   indexById,
   isApplied,
+  overriddenBy,
   loadIconvEncoder,
   loadTransliterator,
   parseCsv,
@@ -164,6 +165,7 @@ export class EngineSession {
       Object.assign(ascii, { transliterate: await loadTransliterator() });
     }
     this.options = { stages: { encoding: settings.repair, ascii: settings.ascii }, ascii };
+    if (settings.rules) this.options.rules = settings.rules;
     const invisibleOnly = settings.ascii && settings.asciiScope === 'invisible';
     this.reportOptions = invisibleOnly
       ? { ...this.options, stages: { encoding: settings.repair, ascii: false } }
@@ -228,14 +230,20 @@ export class EngineSession {
   private state(): ChangeState {
     const byId = indexById(this.changes);
     const memo = new Map<string, boolean>();
-    const applied = this.changes.map((c) => isApplied(c, byId, memo));
+    const overridden = overriddenBy(this.changes);
+    const applied = this.changes.map((c) => isApplied(c, byId, memo) && !overridden.has(c.id));
     const acceptable = this.changes.map((c) =>
       (c.dependsOn ?? []).every((pid) => {
         const p = byId.get(pid);
         return p !== undefined && isApplied(p, byId, memo);
       }),
     );
-    return { accepted: this.changes.map((c) => c.accepted), applied, acceptable };
+    return {
+      accepted: this.changes.map((c) => c.accepted),
+      applied,
+      overriddenBy: this.changes.map((c) => overridden.get(c.id) ?? null),
+      acceptable,
+    };
   }
 
   private view(): ViewData {

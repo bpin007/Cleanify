@@ -13,7 +13,10 @@ import {
   createUploadSchema,
   decideSchema,
   formatOfFileName,
+  toRuleSet,
+  type CreateJobBody,
   type JobInfo,
+  type RuleKind,
   type Quotas,
   type UploadTicket,
 } from '@cleanify/shared';
@@ -22,7 +25,7 @@ import express, { Router, type Request, type Response } from 'express';
 import type { Config } from '../config.js';
 import { HttpError, notFound, parseBody } from '../middleware/errors.js';
 import { ensureAnon } from '../middleware/session.js';
-import { Job, SavedFile, Usage, newId, type JobDoc } from '../models.js';
+import { Job, Rule, SavedFile, Usage, newId, type JobDoc } from '../models.js';
 import type { JobQueue } from '../jobs/queue.js';
 import {
   JOBS,
@@ -78,6 +81,26 @@ function owner(config: Config, req: Request, res: Response) {
     return { ownerId: req.user._id, subject: req.user._id, root: `users/${req.user._id}` };
   const sid = ensureAnon(config, req, res);
   return { ownerId: null, anonSessionId: sid, subject: `anon:${sid}`, root: `anon/${sid}` };
+}
+
+/**
+ * The settings a job runs with. Signed-in users get their saved, enabled rules (in
+ * order), loaded here so the job keeps the rules it started with; anonymous users'
+ * session-only rules come with the request (section 6).
+ */
+async function jobSettings(req: Request, settings: CreateJobBody['settings']) {
+  if (!req.user) return settings;
+  const saved = await Rule.find({ ownerId: req.user._id }).sort({ order: 1, createdAt: 1 }).lean();
+  const rules = toRuleSet(
+    saved.map((r) => ({
+      kind: (r.kind ?? 'replace') as RuleKind,
+      name: r.name,
+      from: r.from,
+      to: r.to ?? '',
+      enabled: r.enabled ?? true,
+    })),
+  );
+  return { ...settings, rules };
 }
 
 /** The job, if the caller owns it; otherwise 404 (never reveal that it exists). */
@@ -219,7 +242,7 @@ export function jobRoutes({ config, work, queue, cache }: JobRouteDeps): Router 
         prefix,
         status: 'queued',
         input: { kind: 'text', fileName: null, size: bytes.length, format: 'text' },
-        settings: body.settings,
+        settings: await jobSettings(req, body.settings),
         expiresAt: req.user ? null : new Date(Date.now() + config.retention.anonMinutes * 60_000),
       });
       job = created.toObject() as JobDoc;
@@ -249,7 +272,11 @@ export function jobRoutes({ config, work, queue, cache }: JobRouteDeps): Router 
       }
       job = (await Job.findOneAndUpdate(
         { _id: existing._id, status: 'uploading' },
-        { status: 'queued', settings: body.settings, 'input.size': head.size },
+        {
+          status: 'queued',
+          settings: await jobSettings(req, body.settings),
+          'input.size': head.size,
+        },
         { returnDocument: 'after' },
       ).lean<JobDoc>())!;
     }
