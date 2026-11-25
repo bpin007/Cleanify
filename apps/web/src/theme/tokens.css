@@ -33,6 +33,9 @@
   --fix-translate: #059669;
   --fix-translate-text: #065f46;
   --fix-translate-bg: #dcf0ea;
+  --fix-rule: #db2777;
+  --fix-rule-text: #9d174d;
+  --fix-rule-bg: #fbe4ef;
   --fix-safety: #0891b2;
   --fix-safety-text: #155e75;
   --fix-safety-bg: #dbf1f6;
@@ -63,6 +66,9 @@
     --fix-translate: #34d399;
     --fix-translate-text: #34d399;
     --fix-translate-bg: #1d4034;
+    --fix-rule: #f472b6;
+    --fix-rule-text: #f9a8d4;
+    --fix-rule-bg: #4a2739;
     --fix-safety: #22d3ee;
     --fix-safety-text: #67e8f9;
     --fix-safety-bg: #173c45;
@@ -93,6 +99,9 @@
   --fix-translate: #34d399;
   --fix-translate-text: #34d399;
   --fix-translate-bg: #1d4034;
+  --fix-rule: #f472b6;
+  --fix-rule-text: #f9a8d4;
+  --fix-rule-bg: #4a2739;
   --fix-safety: #22d3ee;
   --fix-safety-text: #67e8f9;
   --fix-safety-bg: #173c45;

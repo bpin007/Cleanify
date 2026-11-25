@@ -128,3 +128,38 @@ test('signed in: job, decisions, save to files, history, rules, settings, log ou
   await page.goto('/app/files');
   await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Ffiles$/);
 });
+
+test('signed in: saved rules apply in browser mode and in cloud mode', async ({ page }) => {
+  const email = `rules-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
+  await page.goto('/signup');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill('a-long-enough-password');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page).toHaveURL(/\/app$/);
+
+  await page.goto('/app/rules');
+  await expect(page.getByText('Applied to everything you clean while logged in')).toBeVisible();
+  await page.getByLabel('Find').fill('™');
+  await page.getByLabel('Replace with').fill('TM');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByText('“™” → “TM”')).toBeVisible();
+  await page.getByLabel('Keep').check();
+  await page.getByLabel('Text to keep').fill('é');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByText('keep “é”')).toBeVisible();
+
+  for (const mode of ['Browser', 'Cloud'] as const) {
+    await page.goto('/');
+    await page.getByText(mode, { exact: true }).click();
+    const ascii = page.getByRole('switch', { name: /Convert to plain ASCII/ });
+    if ((await ascii.getAttribute('aria-checked')) !== 'true') await ascii.click();
+    await page.locator('summary', { hasText: 'Your rules' }).click();
+    await expect(page.getByText('2 on')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Text to clean' }).fill('Acme™ café naïve');
+    await page.getByRole('button', { name: 'Clean' }).click();
+    await expect(page.getByTestId('summary')).toHaveText('1 rule change · 1 accent or symbol', {
+      timeout: 60_000,
+    });
+    expect((await download(page)).text, mode).toBe('AcmeTM café naive');
+  }
+});

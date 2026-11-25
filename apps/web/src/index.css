@@ -17,16 +17,19 @@
   --color-fix-accent: var(--fix-accent);
   --color-fix-invisible: var(--fix-invisible);
   --color-fix-translate: var(--fix-translate);
+  --color-fix-rule: var(--fix-rule);
   --color-fix-safety: var(--fix-safety);
   --color-fix-encoding-text: var(--fix-encoding-text);
   --color-fix-accent-text: var(--fix-accent-text);
   --color-fix-invisible-text: var(--fix-invisible-text);
   --color-fix-translate-text: var(--fix-translate-text);
+  --color-fix-rule-text: var(--fix-rule-text);
   --color-fix-safety-text: var(--fix-safety-text);
   --color-fix-encoding-bg: var(--fix-encoding-bg);
   --color-fix-accent-bg: var(--fix-accent-bg);
   --color-fix-invisible-bg: var(--fix-invisible-bg);
   --color-fix-translate-bg: var(--fix-translate-bg);
+  --color-fix-rule-bg: var(--fix-rule-bg);
   --color-fix-safety-bg: var(--fix-safety-bg);
 
   --font-sans:
@@ -85,6 +88,11 @@ body {
 .hl-translate {
   background: var(--fix-translate-bg);
   border-bottom: 3px double var(--fix-translate);
+}
+.hl-rule {
+  background: var(--fix-rule-bg);
+  border-top: 1px solid var(--fix-rule);
+  border-bottom: 2px solid var(--fix-rule);
 }
 .hl-safety {
   background: var(--fix-safety-bg);

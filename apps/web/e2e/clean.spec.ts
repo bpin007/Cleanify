@@ -91,3 +91,45 @@ test('the mode selector switches to cloud mode and remembers it', async ({ page 
   await page.reload();
   await expect(page.getByRole('radio', { name: /^Cloud/ })).toBeChecked();
 });
+
+test('session-only rules: a rule beats the ASCII step, can be rejected, and lasts for the tab', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('summary', { hasText: 'Your rules' }).click();
+  await page.getByLabel('Find').fill('™');
+  await page.getByLabel('Replace with').fill('TM');
+  await page.getByRole('button', { name: 'Add for this tab' }).click();
+  await expect(page.getByText('“™” → “TM”')).toBeVisible();
+
+  await page.getByRole('switch', { name: /Convert to plain ASCII/ }).click();
+  await page.getByRole('textbox', { name: 'Text to clean' }).fill('Acme™ café');
+  await page.getByRole('button', { name: 'Clean' }).click();
+  await expect(page).toHaveURL(/\/result\/local$/);
+  await expect(page.getByTestId('summary')).toHaveText('1 rule change · 1 accent or symbol');
+  await expect(page.getByText('Replaced by your rule “™ → TM”.')).toBeVisible();
+  expect((await download(page)).bytes.toString('utf8')).toBe('AcmeTM cafe');
+
+  // Rejected: the ASCII step's own replacement comes back.
+  await page.getByRole('button', { name: 'Reject all rule changes' }).click();
+  await expect(page.getByTestId('summary')).toHaveText('2 accents and symbols');
+  expect((await download(page)).bytes.toString('utf8')).toBe('Acme(TM) cafe');
+
+  // The rule is still there after a reload (same tab).
+  await page.goto('/');
+  await page.locator('summary', { hasText: 'Your rules' }).click();
+  await expect(page.getByText('“™” → “TM”')).toBeVisible();
+});
+
+test('a keep rule stops the ASCII step from changing that text', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('summary', { hasText: 'Your rules' }).click();
+  await page.getByLabel('Keep').check();
+  await page.getByLabel('Text to keep').fill('é');
+  await page.getByRole('button', { name: 'Add for this tab' }).click();
+  await page.getByRole('switch', { name: /Convert to plain ASCII/ }).click();
+  await page.getByRole('textbox', { name: 'Text to clean' }).fill('café naïve');
+  await page.getByRole('button', { name: 'Clean' }).click();
+  await expect(page.getByTestId('summary')).toHaveText('1 accent or symbol');
+  expect((await download(page)).bytes.toString('utf8')).toBe('café naive');
+});

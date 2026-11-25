@@ -2,7 +2,7 @@
  * The cleaning session for this tab: settings, progress, the analysed document and
  * the user's decisions. Everything stays in memory in this tab (browser mode).
  */
-import type { EncodingName } from '@cleanify/engine';
+import type { EncodingName, RuleSet } from '@cleanify/engine';
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CancelledError, EngineClient } from '../engine/client';
@@ -52,7 +52,8 @@ interface SessionValue {
   busy: boolean;
   /** The user changed decisions since the last download (or since cleaning). */
   unsaved: boolean;
-  clean: (input: CleanInput) => Promise<boolean>;
+  /** Runs with the current settings plus the user's rules (kept for re-reading). */
+  clean: (input: CleanInput, rules?: RuleSet) => Promise<boolean>;
   reanalyze: (encoding: EncodingName) => Promise<boolean>;
   decide: (decisions: Decision[]) => Promise<void>;
   outputText: () => Promise<string>;
@@ -109,14 +110,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // The rules of the last run, so re-reading with another encoding uses the same ones.
+  const lastRules = useRef<RuleSet | undefined>(undefined);
+
   const clean = useCallback(
-    (input: CleanInput) =>
-      run({ type: 'analyze', input, settings }, input.kind === 'file' ? [input.bytes] : []),
+    (input: CleanInput, rules?: RuleSet) => {
+      lastRules.current = rules;
+      return run(
+        { type: 'analyze', input, settings: { ...settings, rules } },
+        input.kind === 'file' ? [input.bytes] : [],
+      );
+    },
     [run, settings],
   );
 
   const reanalyze = useCallback(
-    (encoding: EncodingName) => run({ type: 'reanalyze', encoding, settings }),
+    (encoding: EncodingName) =>
+      run({ type: 'reanalyze', encoding, settings: { ...settings, rules: lastRules.current } }),
     [run, settings],
   );
 

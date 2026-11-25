@@ -7,8 +7,10 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { account, auth, me as meApi } from '../api/client';
 import { ME_KEY, errorMessage, useMe, useRefreshMe } from '../api/queries';
+import { RULES_KEY } from '../api/rules';
 import { Alert, Field, SubmitButton, secondaryButton } from '../components/Form';
 import { PipelineToggles } from '../components/PipelineToggles';
+import { AddRuleForm, RuleText } from '../components/RulesPanel';
 import { APP_NAME } from '../config';
 import { formatBytes, summary } from '../lib/labels';
 import type { CleanSettings } from '@cleanify/session';
@@ -289,8 +291,8 @@ export function FilesPage() {
 export function RulesPage() {
   useTitle('Rules');
   const qc = useQueryClient();
-  const rules = useQuery({ queryKey: ['rules'], queryFn: () => account.rules() });
-  const refresh = () => qc.invalidateQueries({ queryKey: ['rules'] });
+  const rules = useQuery({ queryKey: RULES_KEY, queryFn: () => account.rules() });
+  const refresh = () => qc.invalidateQueries({ queryKey: RULES_KEY });
   const [problem, setProblem] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -306,41 +308,35 @@ export function RulesPage() {
     }
   };
 
-  const onAdd = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const f = new FormData(form);
-    setAdding(true);
-    const ok = await run(() =>
-      account.addRule({
-        name: String(f.get('name') ?? '').trim(),
-        from: String(f.get('from') ?? ''),
-        to: String(f.get('to') ?? ''),
-        enabled: true,
-      }),
-    );
-    setAdding(false);
-    if (ok) form.reset();
-  };
-
   const list: RuleInfo[] = rules.data?.rules ?? [];
+  // Renumbers the whole list, so gaps or equal orders (after deletes) can't block a move.
   const move = (i: number, by: -1 | 1) => {
-    const other = list[i + by];
-    const rule = list[i];
-    if (!rule || !other) return;
-    void run(async () => {
-      await account.updateRule(rule.id, { order: other.order });
-      await account.updateRule(other.id, { order: rule.order });
-    });
+    if (!list[i] || !list[i + by]) return;
+    const next = [...list];
+    [next[i], next[i + by]] = [next[i + by]!, next[i]!];
+    void run(() =>
+      Promise.all(
+        next.map((r, order) => (r.order === order ? null : account.updateRule(r.id, { order }))),
+      ),
+    );
   };
 
   return (
     <section className="grid gap-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Replacement rules</h1>
-      <p className="text-sm text-muted">
-        Your own find-and-replace rules, kept in your account in this order. Matching is exact text,
-        not patterns.
-      </p>
+      <h1 className="text-2xl font-semibold tracking-tight">Your rules</h1>
+      <div className="grid gap-2 text-sm text-muted">
+        <p>
+          Applied to everything you clean while logged in, in browser and cloud mode. They run after
+          the encoding repair and before the ASCII step, so “™ → TM” wins over the ASCII step’s
+          “(TM)”. Each change a rule makes shows up for review and can be rejected.
+        </p>
+        <p>
+          <strong className="font-medium text-text">Replace</strong> rules match exact text (no
+          patterns), top to bottom: where two overlap, the higher one wins.{' '}
+          <strong className="font-medium text-text">Keep</strong> rules stop the ASCII step from
+          changing some text, e.g. keep “é”.
+        </p>
+      </div>
       {rules.isError && <Alert>{errorMessage(rules.error)}</Alert>}
       {problem && <Alert>{problem}</Alert>}
       {rules.isPending ? (
@@ -353,8 +349,8 @@ export function RulesPage() {
             <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{r.name}</p>
-                <p className="font-mono text-sm text-muted">
-                  “{r.from}” → “{r.to}”
+                <p className="text-sm text-muted">
+                  <RuleText rule={r} />
                 </p>
               </div>
               <label className="flex items-center gap-2 text-sm">
@@ -398,16 +394,18 @@ export function RulesPage() {
         </ol>
       )}
 
-      <form
-        onSubmit={onAdd}
-        className="grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end"
-      >
-        <h2 className="text-sm font-medium sm:col-span-4">Add a rule</h2>
-        <Field label="Name" name="name" required maxLength={100} />
-        <Field label="Find" name="from" required maxLength={500} />
-        <Field label="Replace with" name="to" maxLength={500} />
-        <SubmitButton busy={adding}>Add</SubmitButton>
-      </form>
+      <div className="grid gap-3 rounded-xl border border-border bg-surface p-4">
+        <h2 className="text-sm font-medium">Add a rule</h2>
+        <AddRuleForm
+          busy={adding}
+          onAdd={async (r) => {
+            setAdding(true);
+            const ok = await run(() => account.addRule({ ...r, enabled: true }));
+            setAdding(false);
+            return ok;
+          }}
+        />
+      </div>
     </section>
   );
 }

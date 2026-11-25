@@ -3,6 +3,7 @@ import {
   CaseSensitive,
   EyeOff,
   Languages,
+  ListChecks,
   ShieldCheck,
   Wrench,
   type LucideIcon,
@@ -14,6 +15,7 @@ const ICONS: Record<Stage, LucideIcon> = {
   ascii: CaseSensitive,
   invisible: EyeOff,
   translate: Languages,
+  rule: ListChecks,
   safety: ShieldCheck,
 };
 

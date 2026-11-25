@@ -7,11 +7,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { startCloudJob } from '../api/cloud';
 import { errorMessage, useMe } from '../api/queries';
+import { useRules } from '../api/rules';
 import { formatBytes, plural } from '../lib/labels';
 import { useSession, type Progress } from '../session/SessionContext';
 import { PasteDrop, type DraftInput } from './PasteDrop';
 import { PipelineToggles } from './PipelineToggles';
 import { ProgressBar } from './ProgressBar';
+import { RulesPanel } from './RulesPanel';
 
 export function CleanTool({ placeholder }: { placeholder?: string | undefined }) {
   const session = useSession();
@@ -21,10 +23,12 @@ export function CleanTool({ placeholder }: { placeholder?: string | undefined })
   const [cloudError, setCloudError] = useState<string | null>(null);
   const meQuery = useMe();
   const quotas = meQuery.data?.quotas;
+  const rules = useRules();
+  const hasRules = rules.ruleSet.replace.length + rules.ruleSet.keep.length > 0;
 
   const cloud = session.mode === 'cloud';
   const empty = draft.kind === 'paste' && draft.text.length === 0;
-  const nothingOn = !session.settings.repair && !session.settings.ascii;
+  const nothingOn = !session.settings.repair && !session.settings.ascii && !hasRules;
   const size = draft.kind === 'file' ? draft.file.size : new Blob([draft.text]).size;
   const tooBig = cloud && quotas !== undefined && size > quotas.cloudFileBytes;
 
@@ -32,7 +36,8 @@ export function CleanTool({ placeholder }: { placeholder?: string | undefined })
     if (cloud) {
       setCloudError(null);
       try {
-        const id = await startCloudJob(draft, session.settings, setCloudProgress);
+        const settings = { ...session.settings, rules: rules.ruleSet };
+        const id = await startCloudJob(draft, settings, setCloudProgress);
         navigate(`/result/${id}`);
       } catch (e) {
         setCloudError(errorMessage(e));
@@ -50,7 +55,7 @@ export function CleanTool({ placeholder }: { placeholder?: string | undefined })
             format: draft.format,
             bytes: await draft.file.arrayBuffer(),
           } as const);
-    if (await session.clean(input)) navigate('/result/local');
+    if (await session.clean(input, rules.ruleSet)) navigate('/result/local');
   };
 
   const error = cloud ? cloudError : session.error;
@@ -65,6 +70,7 @@ export function CleanTool({ placeholder }: { placeholder?: string | undefined })
         mode={session.mode}
         onModeChange={session.setMode}
       />
+      <RulesPanel rules={rules} />
 
       {cloud && quotas && (
         <p className="-mt-2 text-sm text-muted" data-testid="cloud-note">
@@ -97,7 +103,7 @@ export function CleanTool({ placeholder }: { placeholder?: string | undefined })
           <button
             type="button"
             onClick={onClean}
-            disabled={empty || nothingOn || tooBig}
+            disabled={empty || nothingOn || tooBig || rules.loading}
             className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 font-medium text-on-accent shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles aria-hidden="true" className="size-4" /> Clean
