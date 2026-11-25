@@ -1,11 +1,13 @@
 /**
  * Output report (review fix 3): what is still worth telling the user about a
  * document after changes are applied: characters that are still not ASCII
- * (when the ASCII stage is on) and CSV cells that could still run as formulas.
+ * (when the ASCII stage is on; text a keep rule protects is not counted) and CSV cells
+ * that could still run as formulas.
  */
 import { csvUnits, isFormulaRisk } from './formats/csv';
 import { sheetUnits } from './formats/sheet';
 import { textUnits } from './formats/text';
+import { keptRanges, overlapsAny } from './rules/rules';
 import type { Doc, Location, OutputReport, PipelineOptions, RemainingChar } from './types';
 
 export function checkOutput(doc: Doc, options: PipelineOptions = {}): OutputReport {
@@ -17,12 +19,18 @@ export function checkOutput(doc: Doc, options: PipelineOptions = {}): OutputRepo
         : doc.format === 'sheet'
           ? sheetUnits(doc)
           : csvUnits(doc);
+    const keep = options.rules?.keep ?? [];
     for (const unit of units) {
       const t = unit.text;
+      const kept = keep.length > 0 ? keptRanges(t, keep) : [];
       for (let i = 0; i < t.length; i++) {
         const codePoint = t.codePointAt(i)!;
         if (codePoint < 0x80) continue;
         const char = String.fromCodePoint(codePoint);
+        if (overlapsAny(kept, i, i + char.length)) {
+          i += char.length - 1;
+          continue;
+        }
         nonAscii.push({ char, codePoint, location: unit.locate(i) });
         i += char.length - 1;
       }

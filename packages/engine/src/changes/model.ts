@@ -81,7 +81,8 @@ export function setGroupDecision(
  * Checks the structural rules of section 13:
  * - an `inParent` change lists its parent in `dependsOn`, and the parent exists;
  * - offsets are inside the text they point into;
- * - top-level changes in one unit don't overlap (a translation may cover others).
+ * - top-level changes in one unit don't overlap, except that a translation may cover
+ *   others and a rule may overlap non-rule changes (it takes precedence over them).
  */
 export function validateChanges(
   changes: readonly Change[],
@@ -118,8 +119,7 @@ export function validateChanges(
     }
   }
 
-  for (const list of perUnit.values()) {
-    const plain = list.filter((c) => c.stage !== 'translate');
+  const noOverlaps = (plain: Change[]) => {
     // Same start: an insertion (empty range) sorts before a replacement there.
     plain.sort((a, b) => start(a) - start(b) || end(a) - end(b));
     for (let k = 1; k < plain.length; k++) {
@@ -127,6 +127,10 @@ export function validateChanges(
         throw new ChangeModelError(`${plain[k - 1]!.id} and ${plain[k]!.id} overlap`);
       }
     }
+  };
+  for (const list of perUnit.values()) {
+    noOverlaps(list.filter((c) => c.stage !== 'translate' && c.stage !== 'rule'));
+    noOverlaps(list.filter((c) => c.stage === 'rule'));
   }
 }
 

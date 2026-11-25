@@ -136,5 +136,24 @@ export function preview(doc: Doc, changes: readonly Change[]): Preview {
     }
   }
   marks.sort((a, b) => a.start - b.start || a.end - b.end);
-  return { marks, edits };
+  return { marks: withoutOverlaps(marks), edits };
+}
+
+/**
+ * Marks only overlap where a user's rule covers other changes (e.g. a rule across a
+ * repair). A view can draw one mark per range, so keep the applied one, and between
+ * two equally applied ones the rule. The others are still in the change list.
+ */
+function withoutOverlaps(sorted: PreviewMark[]): PreviewMark[] {
+  const rank = (m: PreviewMark) => (m.applied ? 2 : 0) + (m.stage === 'rule' ? 1 : 0);
+  const out: PreviewMark[] = [];
+  for (const m of sorted) {
+    const prev = out.at(-1);
+    // Kept marks never overlap and are sorted, so only the last one can overlap m.
+    const overlaps =
+      prev !== undefined && m.start < prev.end && (m.end > m.start || m.start > prev.start);
+    if (!overlaps) out.push(m);
+    else if (rank(m) > rank(prev)) out[out.length - 1] = m;
+  }
+  return out;
 }

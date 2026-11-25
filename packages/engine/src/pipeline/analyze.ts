@@ -1,15 +1,24 @@
 /**
  * The analysis pipeline, shared by every format adapter (PROJECT.md sections 5, 13).
  *
- * Per unit: Stage 1 runs on the original text. Stage 2 runs on Stage 1's output;
- * each Stage 2 proposal that falls inside a Stage 1 repair is anchored
- * `inParent` to that repair (with `dependsOn`), every other one to the original
- * text (decision D3). Warnings are scanned on the repaired text and located in
- * the original. (Stage 3, translation, joins in Phase 4.)
+ * Per unit: Stage 1 runs on the original text. The user's replace rules, then Stage 2,
+ * run on Stage 1's output; each proposal that falls inside a Stage 1 repair is anchored
+ * `inParent` to that repair (with `dependsOn`), every other one to the original text
+ * (decision D3). A rule match that spans a repair and the text around it becomes one
+ * change over all of it, depending on the repairs it covers.
+ *
+ * Rules come before Stage 2 (section 5): an applied rule takes precedence over the
+ * Stage 2 changes it overlaps (see changes/apply.ts), so `™ → TM` beats `™ → (TM)`,
+ * and rejecting the rule brings Stage 2's change back. Keep rules stop Stage 2 from
+ * proposing anything in the text they name.
+ *
+ * Warnings are scanned on the repaired text and located in the original. (Stage 3,
+ * translation, joins in Phase 4, between Stage 1 and the rules.)
  */
 import { findStage2 } from '../ascii/stage2';
 import { findMojibake } from '../mojibake/repair';
 import type { Proposal } from '../proposal';
+import { findRuleMatches, keptRanges, overlapsAny, type RuleMatch } from '../rules/rules';
 import { scanWarnings } from '../scan/warnings';
 import type { AnalysisResult, Change, EngineWarning, Location, PipelineOptions } from '../types';
 
@@ -33,6 +42,7 @@ const PREFIX: Record<Change['stage'], string> = {
   ascii: 'a',
   invisible: 'i',
   translate: 't',
+  rule: 'r',
   safety: 's',
 };
 
@@ -186,9 +196,59 @@ export function analyzeUnits(
       });
     }
 
+    // ── Custom replace rules on Stage 1's output ─────────────────────────
+    const ruleChange = (m: RuleMatch): Change => {
+      const p: Proposal = {
+        start: m.start,
+        end: m.end,
+        from: m.rule.from,
+        to: m.rule.to,
+        stage: 'rule',
+        kind: 'replace',
+        reason: m.rule.name,
+        confidence: 'high',
+        accepted: true,
+      };
+      const touched = segments.filter((s) => s.outStart < m.end && m.start < s.outEnd);
+      const repairs = touched.filter((s) => s.changeId !== null);
+      const first = touched[0]!;
+      const last = touched[touched.length - 1]!;
+      if (repairs.length === 0) {
+        // Plain text only (unchanged segments are never next to each other).
+        const start = first.origStart + (m.start - first.outStart);
+        return toChange({ ...p, start, end: start + (m.end - m.start) }, start);
+      }
+      if (touched.length === 1) {
+        const parentId = first.changeId!;
+        return toChange(p, first.origStart, {
+          anchor: {
+            kind: 'inParent',
+            parentId,
+            offsetInParent: m.start - first.outStart,
+            length: m.end - m.start,
+          },
+          dependsOn: [parentId],
+        });
+      }
+      // Across a repair boundary: cover every repair touched, whole, and only the
+      // matched part of the plain text around them.
+      const start = first.changeId ? first.origStart : first.origStart + (m.start - first.outStart);
+      const end = last.changeId ? last.origEnd : last.origStart + (m.end - last.outStart);
+      const prefix = first.changeId ? out.slice(first.outStart, m.start) : '';
+      const suffix = last.changeId ? out.slice(m.end, last.outEnd) : '';
+      return toChange(
+        { ...p, start, end, from: text.slice(start, end), to: prefix + m.rule.to + suffix },
+        start,
+        { dependsOn: repairs.map((s) => s.changeId!) },
+      );
+    };
+    for (const m of findRuleMatches(out, options.rules?.replace ?? [])) changes.push(ruleChange(m));
+
     // ── Stage 2 on Stage 1's output ──────────────────────────────────────
     if (!stage2) return;
+    const kept = keptRanges(out, options.rules?.keep ?? []);
     for (const p of findStage2(out, options.ascii ?? {})) {
+      if (overlapsAny(kept, p.start, p.end)) continue; // a keep rule protects it
       const seg = segmentAt(p.start);
       if (p.end > seg.outEnd) continue; // would straddle a repair boundary: skip
       if (seg.changeId === null) {
